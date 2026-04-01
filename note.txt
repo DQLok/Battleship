@@ -1,0 +1,13 @@
+src/
+├── api/              # Các hàm gọi Zalo SDK (getUserInfo, share, payment)
+├── assets/           # Logo, Banner, Sfx (âm thanh), Icons
+├── components/       # Các component dùng chung (Button, Modal, Loading)
+├── constants/        # Định nghĩa màu sắc (Neon blue), cấu hình game
+├── features/         # QUAN TRỌNG: Chia theo từng cụm tính năng của game
+│   ├── combat/       # Logic bắn tàu, tính điểm, grid map
+│   ├── fleet/        # Quản lý danh sách tàu, nâng cấp tàu
+│   └── profile/      # Thông tin Commander, XP, Rank
+├── hooks/            # Các custom hooks (useAudio, useZaloSDK)
+├── store/            # Quản lý state (Redux Toolkit hoặc Zustand)
+├── types/            # Định nghĩa Interface/Type cho TypeScript
+└── utils/            # Các hàm helper (tính toán tọa độ, format tiền)

@@ -1,0 +1,51 @@
+:root {
+  --bg: #061421;
+  --bg-secondary: #0a1f32;
+  --accent: #22d3ee;
+  --text: #ffffff;
+  --text-secondary: #5CD6FF;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* app.scss */
+
+// 1. Ghi đè toàn bộ thanh Nav
+.zaui-bottom-navigation {
+  background-color: var(--bg) !important;
+  border-top: 1px solid rgba(34, 211, 238, 0.2) !important;
+  height: 64px !important; // Cố định chiều cao để dễ tính toán padding cho page
+}
+
+// 2. Xử lý Item và Label
+.zaui-bottom-navigation-item {
+  background-color: transparent !important;
+  
+  &-label {
+    font-family: var(--font-mono);
+    font-size: 10px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  // Khi item đang active
+  &.zaui-bottom-navigation-item-active {
+    .zaui-bottom-navigation-item-label, 
+    .zaui-icon {
+      color: var(--accent) !important; // Màu Cyan của bạn
+    }
+  }
+}
+
+// Layout dùng chung cho mọi Page chiến đấu/chức năng
+.page-container {
+  @apply h-screen w-full py-20 px-2 flex flex-col;
+  background-color: var(--bg);
+}
