@@ -144,10 +144,9 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
             row.map((status, x) => {
               const isLastShot = lastTarget?.x === x && lastTarget?.y === y;
               // Tìm xem ô hiện tại thuộc con tàu nào đã bị hạ chưa
-              const belongsToSunkShip = (
+              const sunkShip = (
                 type === "enemy" ? enemyShips : placedShips
               ).find((s) => {
-                // 1. Kiểm tra ô (x,y) có thuộc tàu s không
                 let isPart = false;
                 for (let i = 0; i < s.size; i++) {
                   const cx = s.isHorizontal ? s.x + i : s.x;
@@ -156,7 +155,7 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
                 }
                 if (!isPart) return false;
 
-                // 2. Nếu thuộc tàu s, kiểm tra xem tàu s đã bị hạ chưa (tất cả các ô đều là 'hit')
+                // Kiểm tra xem toàn bộ các ô của tàu này đã là 'hit' chưa
                 const grid = type === "enemy" ? enemyGrid : playerGrid;
                 for (let i = 0; i < s.size; i++) {
                   const cx = s.isHorizontal ? s.x + i : s.x;
@@ -174,45 +173,46 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
                     handleTouchStart(x, y);
                   }}
                   className={`w-7 h-7 border border-cyan-900/30 flex items-center justify-center relative ${
-                    status === "empty" ? "bg-[#0d2136]" : ""
+                    isLastShot ? "z-20" : "z-10"
                   }`}
                 >
-                  {/* Hiệu ứng Highlight cho phát bắn gần nhất */}
-                  {isLastShot && (
-                    <div className="absolute inset-0 border-2 border-yellow-400 shadow-[0_0_10px_#facc15] animate-pulse pointer-events-none">
-                      {/* Thêm một biểu tượng nhỏ để phân biệt */}
-                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full" />
-                    </div>
-                  )}
-
-                  {/* HIỆN THÂN TÀU BỊ HẠ (SUNK) */}
-                  {belongsToSunkShip && (
-                    <div className="absolute inset-0 bg-red-600/30 border border-red-500 z-0 animate-pulse" />
-                  )}
-
-                  {/* HIỂN THỊ TÀU (Lưới nhà hoặc Ô đã trúng của địch) */}
+                  {/* 1. THÂN TÀU (Lưới nhà hoặc Tàu địch đã bị lộ do chìm) */}
                   {((type === "home" && status === "ship") ||
-                    status === "hit") && (
+                    (type === "enemy" && sunkShip)) && (
                     <div
-                      className={`w-5 h-5 rounded-sm z-10 ${
-                        status === "hit"
-                          ? "bg-red-500 shadow-[0_0_10px_red]"
-                          : "bg-cyan-400"
+                      className={`w-5 h-5 rounded-sm ${
+                        sunkShip ? "bg-red-800" : "bg-cyan-400"
                       }`}
                     />
                   )}
 
-                  {/* HIỆN ICON NỔ KHI TÀU CHÌM */}
-                  {belongsToSunkShip && status === "hit" && (
-                    <span className="absolute z-20 text-[14px]">🔥</span>
+                  {/* 2. HIỆU ỨNG NỔ & TÀU BỊ HẠ */}
+                  {status === "hit" && (
+                    <div className="absolute inset-0 flex items-center justify-center z-30">
+                      <div
+                        className={`w-5 h-5 rounded-sm animate-pulse ${
+                          sunkShip
+                            ? "bg-orange-700 shadow-[0_0_15px_orange]"
+                            : "bg-red-500"
+                        }`}
+                      />
+                      <span className="absolute text-[14px]">
+                        {sunkShip ? "🔥" : "💥"}
+                      </span>
+                      {sunkShip && (
+                        <div className="absolute inset-0 bg-red-500/20 animate-ping rounded-full" />
+                      )}
+                    </div>
                   )}
 
-                  {/* CÁC TRẠNG THÁI KHÁC */}
+                  {/* 3. HIỆU ỨNG TRƯỢT */}
                   {status === "miss" && (
-                    <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+                    <div className="w-1.5 h-1.5 bg-white/40 rounded-full" />
                   )}
-                  {status === "empty" && (
-                    <div className="w-0.5 h-0.5 bg-cyan-900/50 rounded-full" />
+
+                  {/* 4. HIGHLIGHT PHÁT BẮN CUỐI CÙNG */}
+                  {isLastShot && (
+                    <div className="absolute inset-0 border-2 border-yellow-400 shadow-[0_0_12px_#facc15] z-40 pointer-events-none animate-pulse" />
                   )}
                 </div>
               );

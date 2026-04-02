@@ -19,6 +19,7 @@ const CombatPage: React.FC = () => {
     toggleDraggingRotation,
     setBotFleet, // Sử dụng hàm này thay vì setEnemyShips thủ công
     setTurn,
+    enemyShips,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
@@ -151,6 +152,58 @@ const CombatPage: React.FC = () => {
               </Button>
             )}
           </div>
+        </Box>
+
+        {/* --- DEBUG PANEL: HIỆN LƯỚI TÀU NGẦM CỦA BOT --- */}
+        <Box className="mt-20 p-4 border-t border-dashed border-red-500/30 bg-red-950/10">
+          <Text className="text-red-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 text-center">
+            --- DEBUG MODE: BOT ACTUAL POSITIONS ---
+          </Text>
+
+          <div className="flex justify-center opacity-60 scale-90 origin-top">
+            {/* Reuse GameGrid với type="enemy" nhưng chúng ta sẽ can thiệp hiển thị */}
+            <div className="relative pointer-events-none">
+              <GameGrid type="enemy" />
+
+              {/* Overlay các vị trí tàu thực tế của Bot lên trên lưới Radar */}
+              <div className="absolute inset-0 grid grid-cols-10 gap-0.5 p-1 ml-7 mt-8">
+                {/* Logic này giúp bạn nhìn thấy tàu Bot đang nằm ở đâu thực sự */}
+                {[...Array(100)].map((_, i) => {
+                  const x = i % 10;
+                  const y = Math.floor(i / 10);
+                  const isBotShip = enemyShips.some((s) => {
+                    for (let j = 0; j < s.size; j++) {
+                      const sx = s.isHorizontal ? s.x + j : s.x;
+                      const sy = s.isHorizontal ? s.y : s.y + j;
+                      if (sx === x && sy === y) return true;
+                    }
+                    return false;
+                  });
+
+                  return (
+                    <div
+                      key={i}
+                      className="w-7 h-7 flex items-center justify-center"
+                    >
+                      {isBotShip && (
+                        <div className="w-3 h-3 bg-red-500/50 rounded-full shadow-[0_0_8px_red]" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <Box className="mt-4 bg-black/40 p-2 rounded text-[9px] text-gray-400 font-mono">
+            <p>Bot Ships Data:</p>
+            {enemyShips.map((s, idx) => (
+              <div key={idx}>
+                {s.name}: [{s.x},{s.y}] - {s.isHorizontal ? "H" : "V"} (Size:{" "}
+                {s.size})
+              </div>
+            ))}
+          </Box>
         </Box>
       </Box>
 

@@ -291,15 +291,22 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   setEnemyShips: (ships) => set({ enemyShips: ships }),
 
   updatePlayerGrid: (x, y) => {
-    const isHit = get().placedShips.some((s) => {
-      // ... logic check hit cũ
+    const ships = get().placedShips;
+    const isHit = ships.some((s) => {
+      for (let i = 0; i < s.size; i++) {
+        const sx = s.isHorizontal ? s.x + i : s.x;
+        const sy = s.isHorizontal ? s.y : s.y + i;
+        if (sx === x && sy === y) return true;
+      }
+      return false;
     });
+
     const status = isHit ? "hit" : "miss";
     set((state) => ({
       playerGrid: state.playerGrid.map((row, rIdx) =>
         rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
       ),
-      lastBotAttack: { x, y }, // Lưu vị trí gần nhất của Bot
+      lastBotAttack: { x, y }, // QUAN TRỌNG: Lưu vết máy bắn
     }));
     return status;
   },
@@ -320,7 +327,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       );
       return {
         enemyGrid: newGrid,
-        lastPlayerAttack: { x, y }, // Lưu vị trí gần nhất của mình
+        lastPlayerAttack: { x, y }, // QUAN TRỌNG: Lưu vết mình bắn
       };
     });
   },

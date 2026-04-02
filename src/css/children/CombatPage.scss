@@ -23,4 +23,16 @@
       @apply overflow-hidden;
     }
   }
+
+  @keyframes target-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .animate-pulse-target {
+    animation: target-pulse 1.5s infinite ease-in-out;
+    border: 2px solid #facc15 !important;
+    box-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
+  }
 }
