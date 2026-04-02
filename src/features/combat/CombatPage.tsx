@@ -1,5 +1,5 @@
 // src/features/combat/pages/CombatPage.tsx
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
 import CombatControls from "./components/CombatControls";
@@ -40,8 +40,8 @@ const CombatPage: React.FC = () => {
       // CSS inline để khóa scroll Page khi đang kéo tàu trên Grid
       style={{
         overflow: draggingShip ? "hidden" : "auto",
-        height: "100vh",
       }}
+      hideScrollbar={true}
     >
       <Header
         title="THIẾT LẬP HẠM ĐỘI"

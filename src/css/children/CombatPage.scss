@@ -1,18 +1,26 @@
 .combat-page {
-    background: #061421;
-    color: #22d3ee;
-    
-    // Khi đang kéo, khóa toàn bộ scroll mặc định của trình duyệt
-    &.dragging-active {
-      overflow: hidden !important;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+  // Tránh dùng padding-bottom quá lớn (500px) vì nó làm hỏng layout scroll
+  @apply w-full h-screen flex flex-col pt-16 bg-[#061421] overflow-hidden;
+
+  .combat-main-content {
+    // flex-1 để nó chiếm toàn bộ khoảng trống giữa Header và BottomNav
+    // overflow-y-auto để chỉ cuộn trong vùng này
+    @apply flex-1 overflow-y-auto px-4 pt-4 pb-24;
+
+    // Custom thanh cuộn cho ngầu (Optional)
+    &::-webkit-scrollbar {
+      @apply w-1;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      @apply bg-cyan-900/30 rounded;
     }
   }
-  
-  .combat-main-content {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+
+  // Khi đang kéo tàu, ta khóa scroll để tránh giật lag
+  &.dragging-active {
+    .combat-main-content {
+      @apply overflow-hidden;
+    }
   }
+}
