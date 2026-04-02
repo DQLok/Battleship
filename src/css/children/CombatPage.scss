@@ -1,49 +1,18 @@
 .combat-page {
-    @apply flex flex-col pt-[70px] pb-[40px];
-
-    .combat-section {
-        @apply mb-6 flex-none;
-
-        .title {
-            @apply text-cyan-400 text-sm font-bold uppercase tracking-tighter;
-            text-shadow: 0 0 8px rgba(34, 211, 238, 0.5); // Thêm hiệu ứng mà Tailwind khó viết
-        }
+    background: #061421;
+    color: #22d3ee;
+    
+    // Khi đang kéo, khóa toàn bộ scroll mặc định của trình duyệt
+    &.dragging-active {
+      overflow: hidden !important;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
-
-    .btn-withdraw {
-        @apply w-full py-2 bg-slate-900/50 border border-slate-700 text-slate-500 text-xs rounded uppercase transition-colors;
-
-        &:hover {
-            @apply bg-red-900/20 text-red-400 border-red-900/50;
-        }
-    }
-
-    .bottom-spacer {
-        @apply h-20 flex-none;
-    }
-
-    .combat-main-content {
-        @apply p-4 flex flex-col;
-    }
-
-    .combat-section {
-        @apply mb-6 flex-none;
-
-        .title {
-            @apply text-cyan-400 text-sm font-bold uppercase tracking-tighter;
-            text-shadow: 0 0 8px rgba(34, 211, 238, 0.5); // Thêm hiệu ứng mà Tailwind khó viết
-        }
-    }
-
-    .btn-withdraw {
-        @apply w-full py-2 bg-slate-900/50 border border-slate-700 text-slate-500 text-xs rounded uppercase transition-colors;
-
-        &:hover {
-            @apply bg-red-900/20 text-red-400 border-red-900/50;
-        }
-    }
-
-    .bottom-spacer {
-        @apply h-20 flex-none;
-    }
-}
+  }
+  
+  .combat-main-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
