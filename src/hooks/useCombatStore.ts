@@ -2,6 +2,13 @@ import { create } from "zustand";
 
 export type CellStatus = "empty" | "hit" | "miss" | "ship" | "invalid";
 
+const SHIPS_DATA = [
+  { size: 5, name: "Carrier" },
+  { size: 4, name: "Battle" },
+  { size: 3, name: "Cruiser" },
+  { size: 2, name: "Destroy" },
+];
+
 interface Ship {
   size: number;
   x: number;
@@ -34,6 +41,8 @@ interface CombatState {
   toggleDraggingRotation: () => void;
   rotateShipAt: (x: number, y: number) => boolean; // Đổi sang trả về boolean
   resetShips: () => void;
+
+  autoPlaceShips: () => void;
 }
 
 const createEmptyGrid = () =>
@@ -228,6 +237,61 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return false;
   },
 
-  resetShips: () =>
-    set({ placedShips: [], playerGrid: createEmptyGrid(), draggingShip: null }),
+  autoPlaceShips: () => {
+    const newShips: Ship[] = [];
+    const checkOverlap = (
+      x: number,
+      y: number,
+      size: number,
+      isH: boolean,
+      existing: Ship[]
+    ) => {
+      for (let i = 0; i < size; i++) {
+        const cx = isH ? x + i : x;
+        const cy = isH ? y : y + i;
+        if (cx >= 10 || cy >= 10) return true;
+        const overlap = existing.some((s) => {
+          for (let j = 0; j < s.size; j++) {
+            const sx = s.isHorizontal ? s.x + j : s.x;
+            const sy = s.isHorizontal ? s.y : s.y + j;
+            if (sx === cx && sy === cy) return true;
+          }
+          return false;
+        });
+        if (overlap) return true;
+      }
+      return false;
+    };
+
+    SHIPS_DATA.forEach((shipData) => {
+      let placed = false;
+      let attempts = 0;
+      while (!placed && attempts < 100) {
+        const isH = Math.random() > 0.5;
+        const x = Math.floor(Math.random() * 10);
+        const y = Math.floor(Math.random() * 10);
+
+        if (!checkOverlap(x, y, shipData.size, isH, newShips)) {
+          newShips.push({ ...shipData, x, y, isHorizontal: isH });
+          placed = true;
+        }
+        attempts++;
+      }
+    });
+
+    set({
+      placedShips: newShips,
+      playerGrid: get().refreshGrid(newShips),
+      draggingShip: null,
+    });
+  },
+
+  resetShips: () => {
+    const emptyGrid = createEmptyGrid();
+    set({
+      placedShips: [],
+      playerGrid: emptyGrid,
+      draggingShip: null,
+    });
+  },
 }));

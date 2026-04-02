@@ -3,17 +3,29 @@ import { useCombatStore } from "@/hooks/useCombatStore";
 
 const ShipItem: React.FC<{ size: number; name: string }> = ({ size, name }) => {
   const { setDraggingShip, placedShips } = useCombatStore();
-  const isPlaced = placedShips.some(s => s.size === size);
+  const isPlaced = placedShips.some((s) => s.size === size);
+
+  const handleInteraction = () => {
+    if (isPlaced) return;
+
+    // Vừa set Dragging (cho Mobile) vừa đảm bảo Store nhận diện tàu đang được tương tác
+    setDraggingShip({ size, name });
+  };
 
   return (
     <div
-      onPointerDown={() => !isPlaced && setDraggingShip({ size, name })}
+      onClick={handleInteraction} // Thêm onClick cho chắc chắn trên Simulator
+      onPointerDown={handleInteraction}
       className={`flex-1 min-w-[65px] p-2 border-2 rounded-sm flex flex-col items-center justify-center transition-all ${
-        isPlaced ? "border-cyan-900/20 opacity-20 grayscale" : "border-cyan-900/50 bg-[#0d2136] active:scale-95"
+        isPlaced
+          ? "border-cyan-900/20 opacity-20 grayscale"
+          : "border-cyan-900/50 bg-[#0d2136] active:scale-95"
       }`}
     >
       <div className="flex gap-0.5 mb-1">
-        {[...Array(size)].map((_, i) => <div key={i} className="w-2 h-3 bg-cyan-500" />)}
+        {[...Array(size)].map((_, i) => (
+          <div key={i} className="w-2 h-3 bg-cyan-500" />
+        ))}
       </div>
       <p className="text-[7px] font-black text-cyan-600 uppercase">{name}</p>
     </div>
