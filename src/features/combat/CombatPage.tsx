@@ -6,7 +6,7 @@ import CombatControls from "./components/CombatControls";
 import ShipStatusHeader from "./components/ShipStatusHeader";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import BottomNav from "@/components/BottomNav";
-import { Box, Button, Header, Page, Text } from "zmp-ui";
+import { Box, Button, Header, Modal, Page, Text } from "zmp-ui";
 import "@/css/children/CombatPage.scss";
 import { ShipDock } from "./components/ShipDock";
 import { showToast } from "zmp-sdk";
@@ -20,6 +20,8 @@ const CombatPage: React.FC = () => {
     setBotFleet, // Sử dụng hàm này thay vì setEnemyShips thủ công
     setTurn,
     enemyShips,
+    winner,
+    resetShips,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
@@ -206,6 +208,38 @@ const CombatPage: React.FC = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* MODAL THÔNG BÁO KẾT THÚC */}
+      <Modal
+        visible={!!winner}
+        title={
+          winner === "player" ? "CHIẾN THẮNG VẺ VANG!" : "THẤT BẠI TRẬN NÀY"
+        }
+        onClose={() => {}}
+        verticalActions
+      >
+        <Box className="p-4 text-center bg[--var(--bg)] border-t border-dashed border-cyan-900/50 bg-[#0a1a29]">
+          <Text
+            className={
+              winner === "player" ? "text-yellow-500 font-bold" : "text-red-500"
+            }
+          >
+            {winner === "player"
+              ? "Chúc mừng Chỉ huy! Bạn đã quét sạch hạm đội địch."
+              : "Hạm đội của chúng ta đã bị tiêu diệt hoàn toàn."}
+          </Text>
+
+          <Button
+            fullWidth
+            className="mt-6 bg-cyan-500"
+            onClick={() => {
+              window.location.reload(); // Hoặc gọi resetShips() và setInBattle(false)
+            }}
+          >
+            CHƠI VÁN MỚI
+          </Button>
+        </Box>
+      </Modal>
 
       <BottomNav />
     </Page>

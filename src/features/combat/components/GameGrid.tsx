@@ -62,6 +62,13 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
 
   // XỬ LÝ SỰ KIỆN CHẠM XUỐNG
   const handleTouchStart = (x: number, y: number) => {
+    const { winner } = useCombatStore.getState();
+    if (winner) return; // KHÓA GRID: Nếu có người thắng, không cho tương tác nữa
+    if (type === "enemy") {
+      if (turn && enemyGrid[y][x] === "empty") {
+        fireAttack(x, y);
+      }
+    }
     // TRƯỜNG HỢP 1: Tương tác trên lưới nhà (Sắp xếp tàu)
     if (type === "home") {
       setIsLongPress(false);

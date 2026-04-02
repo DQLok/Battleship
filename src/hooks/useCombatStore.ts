@@ -33,6 +33,7 @@ interface CombatState {
   draggingShip: DraggingState | null;
   enemyShips: Ship[];
   turn: boolean;
+  winner: "player" | "bot" | null;
 
   // Actions
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
@@ -61,6 +62,7 @@ interface CombatState {
   generateRandomFleet: () => Ship[];
   lastPlayerAttack: { x: number; y: number } | null;
   lastBotAttack: { x: number; y: number } | null;
+  checkGameOver: (type: "player" | "bot") => void;
 }
 
 const createEmptyGrid = () =>
@@ -77,6 +79,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   turn: true,
   lastPlayerAttack: null,
   lastBotAttack: null,
+  winner: null,
 
   refreshGrid: (ships, ghost) => {
     const newGrid = createEmptyGrid();
@@ -285,12 +288,14 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       enemyGrid: createEmptyGrid(),
       lastPlayerAttack: null,
       lastBotAttack: null,
+      winner: null, // Reset trạng thái thắng
     });
   },
 
   setEnemyShips: (ships) => set({ enemyShips: ships }),
 
   updatePlayerGrid: (x, y) => {
+    if (get().winner) return "miss";
     const ships = get().placedShips;
     const isHit = ships.some((s) => {
       for (let i = 0; i < s.size; i++) {
@@ -308,6 +313,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       ),
       lastBotAttack: { x, y }, // QUAN TRỌNG: Lưu vết máy bắn
     }));
+    get().checkGameOver("player"); // Kiểm tra xem Bot có thắng khôn
     return status;
   },
 
@@ -321,6 +327,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   },
 
   updateEnemyGrid: (x, y, status) => {
+    if (get().winner) return;
     set((state) => {
       const newGrid = state.enemyGrid.map((row, rIdx) =>
         rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
@@ -330,6 +337,20 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         lastPlayerAttack: { x, y }, // QUAN TRỌNG: Lưu vết mình bắn
       };
     });
+    get().checkGameOver("bot"); // Kiểm tra xem mình có thắng không
+  },
+
+  // Hàm kiểm tra xem một bên đã mất hết tàu chưa
+  checkGameOver: (target) => {
+    const ships = target === "bot" ? get().enemyShips : get().placedShips;
+    const grid = target === "bot" ? get().enemyGrid : get().playerGrid;
+
+    // Nếu tất cả các ô của tất cả các tàu đều là 'hit' -> Thua
+    const allSunk = ships.every((ship) => get().isShipSunk(grid, ship));
+
+    if (allSunk) {
+      set({ winner: target === "bot" ? "player" : "bot" });
+    }
   },
 
   setTurn: (turn) => set({ turn }),
