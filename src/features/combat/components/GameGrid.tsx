@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { showToast } from "zmp-sdk";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
 
 const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
@@ -14,7 +15,13 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
     updateDraggingPos,
     rotateShipAt,
     pickUpShip,
+    turn,
+    enemyShips,
+    lastPlayerAttack,
+    lastBotAttack,
   } = useCombatStore();
+  const { fireAttack } = useSupabaseRealtime("room-id-123");
+  const lastTarget = type === "enemy" ? lastPlayerAttack : lastBotAttack;
 
   const displayGrid = type === "home" ? playerGrid : enemyGrid;
   const gridRef = useRef<HTMLDivElement>(null);
@@ -55,27 +62,42 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
 
   // XỬ LÝ SỰ KIỆN CHẠM XUỐNG
   const handleTouchStart = (x: number, y: number) => {
-    if (type !== "home") return;
-    setIsLongPress(false);
+    // TRƯỜNG HỢP 1: Tương tác trên lưới nhà (Sắp xếp tàu)
+    if (type === "home") {
+      setIsLongPress(false);
 
-    // Tìm xem ô có tàu không
-    const ship = placedShips.find((s) => {
-      for (let i = 0; i < s.size; i++) {
-        const cx = s.isHorizontal ? s.x + i : s.x;
-        const cy = s.isHorizontal ? s.y : s.y + i;
-        if (cx === x && cy === y) return true;
+      // Kiểm tra xem vị trí nhấn có tàu đã đặt chưa
+      const ship = placedShips.find((s) => {
+        for (let i = 0; i < s.size; i++) {
+          const cx = s.isHorizontal ? s.x + i : s.x;
+          const cy = s.isHorizontal ? s.y : s.y + i;
+          if (cx === x && cy === y) return true;
+        }
+        return false;
+      });
+
+      if (!ship) return;
+
+      // Logic Long Press để "nhấc" tàu lên (Chế độ kéo thả)
+      timerRef.current = setTimeout(() => {
+        setIsLongPress(true);
+        pickUpShip(ship.size);
+        // Tip: Bạn có thể thêm navigator.vibrate(50) để tạo cảm giác haptic
+      }, 250);
+      return;
+    }
+
+    // TRƯỜNG HỢP 2: Tương tác trên lưới địch (Tấn công)
+    if (type === "enemy") {
+      // 1. Chỉ cho phép bắn khi đang trong trận (nếu bạn có biến inBattle)
+      // 2. Chỉ cho phép bắn khi tới lượt (turn === true)
+      // 3. Chỉ cho phép bắn vào ô chưa từng bắn (empty)
+      if (turn && enemyGrid[y][x] === "empty") {
+        fireAttack(x, y);
+      } else if (!turn) {
+        showToast({ message: "Đang chờ đối thủ phản pháo..." });
       }
-      return false;
-    });
-
-    if (!ship) return;
-
-    // Bắt đầu đếm ngược 250ms cho Long Press
-    timerRef.current = setTimeout(() => {
-      setIsLongPress(true);
-      pickUpShip(ship.size); // Kích hoạt trạng thái kéo
-      // Có thể thêm rung nhẹ ở đây để báo hiệu đã "nhấc" được tàu
-    }, 250);
+    }
   };
 
   // XỬ LÝ KHI NHẤC TAY LÊN
@@ -116,33 +138,85 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
         </div>
         <div
           ref={gridRef}
-          className="grid grid-cols-10 gap-0.5 p-1 bg-[#0a1a29] border border-cyan-500/30 relative"
+          className="grid grid-cols-10 gap-0.5 p-1 bg-[#0a1a29] border border-cyan-500/30 relative touch-none"
         >
           {displayGrid.map((row, y) =>
-            row.map((status, x) => (
-              <div
-                key={`${x}-${y}`}
-                onTouchStart={() => handleTouchStart(x, y)}
-                onTouchEnd={() => handleTouchEnd(x, y)}
-                className={`w-7 h-7 border border-cyan-900/30 flex items-center justify-center relative ${
-                  status === "empty" ? "bg-[#0d2136]" : ""
-                }`}
-              >
-                {status === "ship" && (
-                  <div
-                    className={`w-5 h-5 bg-cyan-400 shadow-[0_0_10px_#22d3ee] rounded-sm pointer-events-none ${
-                      draggingShip ? "opacity-40 scale-110" : ""
-                    }`}
-                  />
-                )}
-                {status === "invalid" && (
-                  <div className="absolute inset-0 bg-red-500/40 animate-pulse pointer-events-none" />
-                )}
-                {status === "empty" && (
-                  <div className="w-0.5 h-0.5 bg-cyan-900/50 rounded-full" />
-                )}
-              </div>
-            ))
+            row.map((status, x) => {
+              const isLastShot = lastTarget?.x === x && lastTarget?.y === y;
+              // Tìm xem ô hiện tại thuộc con tàu nào đã bị hạ chưa
+              const belongsToSunkShip = (
+                type === "enemy" ? enemyShips : placedShips
+              ).find((s) => {
+                // 1. Kiểm tra ô (x,y) có thuộc tàu s không
+                let isPart = false;
+                for (let i = 0; i < s.size; i++) {
+                  const cx = s.isHorizontal ? s.x + i : s.x;
+                  const cy = s.isHorizontal ? s.y : s.y + i;
+                  if (cx === x && cy === y) isPart = true;
+                }
+                if (!isPart) return false;
+
+                // 2. Nếu thuộc tàu s, kiểm tra xem tàu s đã bị hạ chưa (tất cả các ô đều là 'hit')
+                const grid = type === "enemy" ? enemyGrid : playerGrid;
+                for (let i = 0; i < s.size; i++) {
+                  const cx = s.isHorizontal ? s.x + i : s.x;
+                  const cy = s.isHorizontal ? s.y : s.y + i;
+                  if (grid[cy][cx] !== "hit") return false;
+                }
+                return true;
+              });
+
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleTouchStart(x, y);
+                  }}
+                  className={`w-7 h-7 border border-cyan-900/30 flex items-center justify-center relative ${
+                    status === "empty" ? "bg-[#0d2136]" : ""
+                  }`}
+                >
+                  {/* Hiệu ứng Highlight cho phát bắn gần nhất */}
+                  {isLastShot && (
+                    <div className="absolute inset-0 border-2 border-yellow-400 shadow-[0_0_10px_#facc15] animate-pulse pointer-events-none">
+                      {/* Thêm một biểu tượng nhỏ để phân biệt */}
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full" />
+                    </div>
+                  )}
+
+                  {/* HIỆN THÂN TÀU BỊ HẠ (SUNK) */}
+                  {belongsToSunkShip && (
+                    <div className="absolute inset-0 bg-red-600/30 border border-red-500 z-0 animate-pulse" />
+                  )}
+
+                  {/* HIỂN THỊ TÀU (Lưới nhà hoặc Ô đã trúng của địch) */}
+                  {((type === "home" && status === "ship") ||
+                    status === "hit") && (
+                    <div
+                      className={`w-5 h-5 rounded-sm z-10 ${
+                        status === "hit"
+                          ? "bg-red-500 shadow-[0_0_10px_red]"
+                          : "bg-cyan-400"
+                      }`}
+                    />
+                  )}
+
+                  {/* HIỆN ICON NỔ KHI TÀU CHÌM */}
+                  {belongsToSunkShip && status === "hit" && (
+                    <span className="absolute z-20 text-[14px]">🔥</span>
+                  )}
+
+                  {/* CÁC TRẠNG THÁI KHÁC */}
+                  {status === "miss" && (
+                    <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+                  )}
+                  {status === "empty" && (
+                    <div className="w-0.5 h-0.5 bg-cyan-900/50 rounded-full" />
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
