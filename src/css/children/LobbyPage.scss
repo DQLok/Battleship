@@ -1,0 +1,18 @@
+.fab-button {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 999;
+    border-radius: 50% !important; // Làm nút tròn xoe
+    width: 56px;
+    height: 56px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    // Hiệu ứng khi nhấn cho giống game tactical
+    &:active {
+      transform: scale(0.95);
+    }
+  }

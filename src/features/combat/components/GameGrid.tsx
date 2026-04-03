@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { showToast } from "zmp-sdk";
-import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { useBotRealtime } from "@/hooks/useBotRealtime";
 
 const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
@@ -20,7 +20,7 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
     lastPlayerAttack,
     lastBotAttack,
   } = useCombatStore();
-  const { fireAttack } = useSupabaseRealtime("room-id-123");
+  const { fireAttack } = useBotRealtime("room-id-123");
   const lastTarget = type === "enemy" ? lastPlayerAttack : lastBotAttack;
 
   const displayGrid = type === "home" ? playerGrid : enemyGrid;

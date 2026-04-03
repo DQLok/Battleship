@@ -2,7 +2,6 @@
   --bg: #061421;
   --bg-secondary: #0a1f32;
   --accent: #22d3ee;
-  --text: #ffffff;
   --text-secondary: #5CD6FF;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
@@ -10,42 +9,120 @@
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
   font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* app.scss */
 
-// 1. Ghi đè toàn bộ thanh Nav
-.zaui-bottom-navigation {
+// 1. TABS: Nhuộm đen toàn bộ vùng Header Tabs
+.zmp-tabs,
+.zaui-tabs {
   background-color: var(--bg) !important;
-  border-top: 1px solid rgba(34, 211, 238, 0.2) !important;
-  height: 64px !important; // Cố định chiều cao để dễ tính toán padding cho page
-}
 
-// 2. Xử lý Item và Label
-.zaui-bottom-navigation-item {
-  background-color: transparent !important;
-  
-  &-label {
-    font-family: var(--font-mono);
-    font-size: 10px !important;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+  // Nhắm thẳng vào thanh điều hướng của Tabs
+  .zmp-tabs-nav,
+  .zaui-tabs-nav {
+    background-color: var(--bg) !important;
+    background: var(--bg) !important;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.1) !important;
+
+    // QUAN TRỌNG: Nhuộm đen tất cả các lớp trung gian (scroll, wrap, list)
+    &-container,
+    &-wrap,
+    &-scroll,
+    &-list {
+      background-color: var(--bg) !important;
+      background: var(--bg) !important;
+    }
+
+    // Các item tab lẻ
+    &-item {
+      background-color: transparent !important;
+      color: #4b5563 !important;
+
+      &.zmp-tabs-nav-item-active,
+      &.zaui-tabs-nav-item-active {
+        color: var(--accent) !important;
+        background-color: transparent !important;
+
+        // Chữ bên trong
+        .zmp-tabs-nav-item-text,
+        .zaui-tabs-nav-item-text {
+          color: var(--accent) !important;
+        }
+      }
+    }
+
+    // Thanh gạch chân (ink bar)
+    .zmp-tabs-nav-ink-bar,
+    .zaui-tabs-nav-ink-bar {
+      background-color: var(--accent) !important;
+    }
   }
 
-  // Khi item đang active
-  &.zaui-bottom-navigation-item-active {
-    .zaui-bottom-navigation-item-label, 
-    .zaui-icon {
-      color: var(--accent) !important; // Màu Cyan của bạn
+  // Nội dung bên dưới tabs
+  .zmp-tabs-content,
+  .zaui-tabs-content {
+    background-color: var(--bg) !important;
+  }
+}
+
+// 2. BOTTOM NAVIGATION: Xóa sạch vệt trắng dưới cùng
+.zmp-bottom-navigation,
+.zaui-bottom-navigation {
+  background-color: var(--bg) !important;
+  border-top: 1px solid rgba(34, 211, 238, 0.1) !important;
+
+  // ÉP TẤT CẢ các thẻ con trực tiếp về nền tối
+  &,
+  div,
+  span,
+  a {
+    background-color: var(--bg) !important;
+    box-shadow: none !important;
+  }
+
+  .zmp-bottom-navigation-item,
+  .zaui-bottom-navigation-item {
+    &-label {
+      color: #4b5563 !important;
+    }
+
+    // Active State
+    &-active,
+    &.zmp-bottom-navigation-item-active,
+    &.zaui-bottom-navigation-item-active {
+
+      .zmp-bottom-navigation-item-label,
+      .zaui-bottom-navigation-item-label,
+      .zmp-icon,
+      .zaui-icon,
+      svg {
+        color: var(--accent) !important;
+        fill: var(--accent) !important;
+        filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.5));
+      }
     }
   }
 }
 
-// Layout dùng chung cho mọi Page chiến đấu/chức năng
+// 3. LAYOUT & PAGE: Chống lộ nền trắng khi render
+.zmp-page,
+.zaui-page,
+.zmp-layout,
+.zaui-layout,
 .page-container {
-  @apply h-screen w-full py-20 px-2 flex flex-col;
+  background-color: var(--bg) !important;
+  background: var(--bg) !important;
+}
+
+// Layout container của bạn
+.page-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bg);
 }

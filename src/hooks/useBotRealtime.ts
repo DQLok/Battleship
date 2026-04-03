@@ -1,7 +1,6 @@
 import { useCombatStore } from "./useCombatStore";
-import { showToast } from "zmp-sdk";
 
-export const useSupabaseRealtime = (roomId: string) => {
+export const useBotRealtime = (roomId: string) => {
   const { setTurn, updateEnemyGrid, enemyShips, updatePlayerGrid, playerGrid } =
     useCombatStore();
 

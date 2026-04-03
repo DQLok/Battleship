@@ -9,14 +9,6 @@ const SHIPS_DATA = [
   { size: 2, name: "Destroy" },
 ];
 
-interface Ship {
-  size: number;
-  x: number;
-  y: number;
-  isHorizontal: boolean;
-  name: string;
-}
-
 interface DraggingState {
   size: number;
   name: string;
