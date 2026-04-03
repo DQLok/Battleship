@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Page, Tabs, Box, Button, Avatar, Text, Icon, Header } from "zmp-ui";
+import {
+  Page,
+  Tabs,
+  Box,
+  Button,
+  Avatar,
+  Text,
+  Icon,
+  Header,
+  SnackbarProvider,
+  useSnackbar,
+} from "zmp-ui";
 import { useSupabase } from "@/hooks/useSupabase";
 import { getUserInfo } from "zmp-sdk";
 import { useNavigate } from "react-router-dom";
@@ -7,9 +18,10 @@ import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
 
 export const LobbyPage = () => {
-  const { rooms, loading, createRoom, joinRoom, fetchRooms } = useSupabase();
+  const { rooms, createRoom, joinRoom, fetchRooms } = useSupabase();
   const [myId, setMyId] = useState("");
   const navigate = useNavigate();
+  const { openSnackbar } = useSnackbar();
 
   useEffect(() => {
     getUserInfo({}).then((res) => setMyId(res.userInfo.id));
@@ -18,6 +30,11 @@ export const LobbyPage = () => {
 
   const handleCreate = async () => {
     const { data, error } = await createRoom(myId);
+    if (error) {
+      console.error(error);
+      openSnackbar({ message: error.code });
+      return;
+    }
     if (data) navigate(`/combat?gameId=${data.id}`);
   };
 

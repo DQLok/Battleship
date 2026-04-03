@@ -22,27 +22,27 @@ export const useSupabase = () => {
     if (!error && data) {
       setRooms(data);
     }
-    if (!data || data.length === 0) {
-      setRooms([
-        {
-          id: "0",
-          player_1: "",
-          player_2: "",
-          current_turn: "",
-          status: "waiting",
-          created_at: "",
-        },
-        {
-          id: "1",
-          player_1: "0",
-          player_2: "",
-          current_turn: "",
-          status: "waiting",
-          created_at: "",
-        },
-      ]);
-    }
-    console.log(rooms);
+    // if (!data || data.length === 0) {
+    //   setRooms([
+    //     {
+    //       id: "0",
+    //       player_1: "",
+    //       player_2: "",
+    //       current_turn: "",
+    //       status: "waiting",
+    //       created_at: "",
+    //     },
+    //     {
+    //       id: "1",
+    //       player_1: "0",
+    //       player_2: "",
+    //       current_turn: "",
+    //       status: "waiting",
+    //       created_at: "",
+    //     },
+    //   ]);
+    // }
+    // console.log(rooms);
     setLoading(false);
   };
 
@@ -52,9 +52,10 @@ export const useSupabase = () => {
       .from("games")
       .insert([
         {
-          player_1: userId,
+          room_name: "BattleShip",
+          host_id: userId,
+          members: [userId],
           status: "waiting",
-          current_turn: userId,
         },
       ])
       .select()
@@ -65,14 +66,10 @@ export const useSupabase = () => {
 
   // 3. Tham gia phòng
   const joinRoom = async (gameId: string, userId: string) => {
-    const { error } = await supabase
-      .from("games")
-      .update({
-        player_2: userId,
-        status: "playing",
-      })
-      .eq("id", gameId);
-
+    const { error } = await supabase.rpc("join_game_room", {
+      room_id: gameId,
+      new_user_id: userId,
+    });
     return { error };
   };
 

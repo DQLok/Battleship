@@ -1,4 +1,3 @@
-import React from "react";
 import { Box, Text, Button, Avatar, Icon } from "zmp-ui";
 
 interface RoomCardProps {
@@ -8,8 +7,8 @@ interface RoomCardProps {
 }
 
 const RoomCard = ({ room, myId, onJoin }: RoomCardProps) => {
-  const isFull = room.player_2 !== null;
-  const isMine = room.player_1 === myId;
+  const isFull = room.members.length > 1;
+  const isMine = room.host_id === myId;
   const host = room.host; // Data join từ bảng profiles
 
   return (
@@ -66,7 +65,7 @@ const RoomCard = ({ room, myId, onJoin }: RoomCardProps) => {
 
         <Box ml={3} flex flexDirection="column">
           <Text size="xSmall" className="text-cyan-600 font-bold uppercase">
-            Host Commander
+            {room.room_name}
           </Text>
           <Text bold className="text-gray-100 text-lg">
             {host?.username || "Unknown Captain"}
@@ -82,7 +81,7 @@ const RoomCard = ({ room, myId, onJoin }: RoomCardProps) => {
           onClick={() => onJoin(room.id)}
           className={`h-10 uppercase font-bold tracking-tighter ${
             isFull || isMine
-              ? "bg-gray-800 text-gray-500"
+              ? "bg-gray-100 text-black-500"
               : "bg-gradient-to-r from-cyan-700 to-cyan-400 text-black active:opacity-80"
           }`}
           style={{

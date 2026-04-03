@@ -14,6 +14,7 @@ import MatchmakingPage from "@/features/matchmaking/MatchmakingPage";
 import { useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { LobbyPage } from "@/features/lobby/LobbyPage";
+import MainLayout from "./MainLayout";
 
 const Layout = () => {
   useEffect(() => {
@@ -47,13 +48,13 @@ const Layout = () => {
       <SnackbarProvider>
         <ZMPRouter>
           <AnimationRoutes>
-            {/* <Route path="/" element={<HomePage />}></Route> */}
-            <Route path="/" element={<CombatPage />}></Route>
-            <Route path="/home" element={<HomePage />}></Route>
-            <Route path="/match" element={<MatchmakingPage />}></Route>
-            <Route path="/combat" element={<CombatPage />}></Route>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<CombatPage />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/match" element={<MatchmakingPage />} />
+              <Route path="/lobby" element={<LobbyPage />} />
+            </Route>
             <Route path="/result" element={<VictoryPage />}></Route>
-            <Route path="/lobby" element={<LobbyPage />}></Route>
           </AnimationRoutes>
         </ZMPRouter>
       </SnackbarProvider>

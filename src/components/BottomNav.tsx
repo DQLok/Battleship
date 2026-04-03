@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Đảm bảo activeKey luôn khớp với pathname hiện tại
   const activeTab = location.pathname;
 
   const navItems = [
@@ -17,7 +19,7 @@ export default function BottomNav() {
     <BottomNavigation fixed activeKey={activeTab}>
       {navItems.map((item) => (
         <BottomNavigation.Item
-          key={item.path}
+          key={item.path} // Key cực kỳ quan trọng để xác định tab active
           label={item.label}
           icon={<Icon icon={item.icon as any} />}
           onClick={() => navigate(item.path)}
