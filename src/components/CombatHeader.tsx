@@ -1,11 +1,22 @@
 // src/features/combat/components/CombatHeader.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
+import { getAppUserId } from "@/utils/user-info";
 
 const CombatHeader: React.FC = () => {
   // Lấy riêng biệt để tránh lỗi render và dễ debug
   const commanderName = useCombatStore((state) => state.commanderName);
   const xp = useCombatStore((state) => state.xp);
+  const [myId, setMyId] = useState("");
+
+  useEffect(() => {
+    const initUser = async () => {
+      const id = await getAppUserId();
+      setMyId(id);
+    };
+
+    initUser();
+  }, [commanderName, xp]);
 
   // Debug: Kiểm tra xem dữ liệu có lấy được từ Store không
   // console.log("Header Data:", { commanderName, xp });
@@ -24,7 +35,8 @@ const CombatHeader: React.FC = () => {
           <div className="absolute -top-1 -left-1 w-2 h-2 border-t border-l border-cyan-400"></div>
         </div>
         <h1 className="text-cyan-400 font-bold tracking-[0.1em] text-xs md:text-sm uppercase truncate max-w-[120px]">
-          {commanderName || "COMMANDER"}
+          {/* {commanderName || "COMMANDER"} */}
+          {myId || "COMMANDER"}
         </h1>
       </div>
 

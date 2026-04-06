@@ -1,14 +1,16 @@
 // src/features/combat/pages/CombatPage.tsx
-import React, { useMemo, useState } from "react"; // Thêm useState để quản lý phase
+import React, { useEffect, useMemo, useState } from "react"; // Thêm useState để quản lý phase
 import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
 import CombatControls from "./components/CombatControls";
 import ShipStatusHeader from "./components/ShipStatusHeader";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import BottomNav from "@/components/BottomNav";
-import { Box, Button, Header, Modal, Page, Text } from "zmp-ui";
+import { Box, Button, Header, Modal, Page, Text, useLocation } from "zmp-ui";
 import "@/css/children/CombatPage.scss";
 import { ShipDock } from "./components/ShipDock";
+import { useSupabase } from "@/hooks/useSupabase";
+import { useUser } from "@/context/UserContext";
 import { showToast } from "zmp-sdk";
 
 const CombatPage: React.FC = () => {
@@ -23,29 +25,44 @@ const CombatPage: React.FC = () => {
     winner,
     resetShips,
   } = useCombatStore();
+  const { saveShipLayout } = useSupabase();
 
   const [inBattle, setInBattle] = useState(false);
+  const { state } = useLocation();
+  const gameId = state?.gameId || "ROOM_ID_HERE";
+  const { user } = useUser();
 
   // Kiểm tra đủ 4 loại tàu (2, 3, 4, 5)
   const isReady = useMemo(() => placedShips.length === 4, [placedShips]);
 
-  const handleStartBattle = () => {
+  useEffect(() => {}, []);
+
+  const handleStartBattle = async () => {
     if (!isReady) {
       showToast({ message: "Vui lòng triển khai đủ hạm đội (4 tàu)!" });
       return;
     }
+    if (!user) {
+      showToast({ message: "Vui lòng đăng nhập!" });
+      return;
+    }
 
-    // 1. Store tự tạo hạm đội ngẫu nhiên cho Bot và lưu vào enemyShips
+    // 1. Gọi hàm từ hook để lưu dữ liệu lên Supabase
+    const { error } = await saveShipLayout(gameId, user.id, placedShips);
+
+    if (error) {
+      console.error("Lỗi đồng bộ hạm đội:", error);
+      showToast({ message: "Lỗi kết nối vệ tinh (Database error)!" });
+      return;
+    }
+
+    // 2. Nếu lưu thành công, bắt đầu logic chiến đấu
     setBotFleet();
-
-    // 2. Chuyển trạng thái sang chiến đấu
     setInBattle(true);
-
-    // 3. Người chơi luôn đi trước
     setTurn(true);
 
     showToast({
-      message: "Chiến dịch bắt đầu! Radar đối thủ đã được kích hoạt.",
+      message: "Chiến dịch bắt đầu! Dữ liệu đã được đồng bộ.",
     });
   };
 

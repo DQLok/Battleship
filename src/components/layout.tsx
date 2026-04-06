@@ -1,49 +1,38 @@
-import { getSystemInfo, getUserInfo } from "zmp-sdk";
-import {
-  AnimationRoutes,
-  App,
-  Route,
-  SnackbarProvider,
-  ZMPRouter,
-} from "zmp-ui";
+import React from "react";
+import { getSystemInfo } from "zmp-sdk";
+import { AnimationRoutes, App, Route, SnackbarProvider, ZMPRouter } from "zmp-ui";
 import { AppProps } from "zmp-ui/app";
+import { UserProvider, useUser } from "@/context/UserContext"; // Import cả 2
+
+// Các màn hình của bạn
 import CombatPage from "@/features/combat/CombatPage";
 import HomePage from "@/features/home/HomePage";
 import VictoryPage from "@/features/result/VictoryPage";
 import MatchmakingPage from "@/features/matchmaking/MatchmakingPage";
-import { useEffect } from "react";
-import { supabase } from "@/api/supabaseClient";
 import { LobbyPage } from "@/features/lobby/LobbyPage";
 import MainLayout from "./MainLayout";
 import { WaitingRoom } from "@/features/lobby/WaitingRoom";
 
-const Layout = () => {
-  useEffect(() => {
-    const syncUser = async () => {
-      try {
-        // 1. Lấy thông tin từ Zalo SDK
-        const { userInfo } = await getUserInfo({});
+const AppContent = () => {
+  const { loading } = useUser();
 
-        // 2. Thực hiện logic đồng bộ với Supabase
-        const { data, error } = await supabase.from("profiles").upsert(
-          {
-            id: userInfo.id,
-            username: userInfo.name,
-            avatar_url: userInfo.avatar,
-            updated_at: new Date(),
-          },
-          { onConflict: "id" }
-        ); // upsert: Nếu có rồi thì update, chưa có thì insert
+  if (loading) {
+    // Style này giúp màn hình loading khớp với phong cách Cyberpunk của bạn
+    return (
+      <div style={{
+        background: '#061421', 
+        height: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: '#22d3ee',
+        fontFamily: 'monospace'
+      }}>
+        LOADING COMMANDER...
+      </div>
+    );
+  }
 
-        if (error) console.error("Supabase Sync Error:", error.message);
-        else console.log("User synced successfully");
-      } catch (err) {
-        console.error("Zalo SDK Error:", err);
-      }
-    };
-
-    syncUser();
-  }, []); // Chạy 1 lần duy nhất khi mở app
   return (
     <App theme={getSystemInfo().zaloTheme as AppProps["theme"]}>
       <SnackbarProvider>
@@ -55,7 +44,7 @@ const Layout = () => {
               <Route path="/match" element={<MatchmakingPage />} />
               <Route path="/lobby" element={<LobbyPage />} />
             </Route>
-            <Route path="/result" element={<VictoryPage />}></Route>
+            <Route path="/result" element={<VictoryPage />} />
             <Route path="/waiting" element={<WaitingRoom />} />
           </AnimationRoutes>
         </ZMPRouter>
@@ -63,4 +52,11 @@ const Layout = () => {
     </App>
   );
 };
+
+export const Layout = () => (
+  <UserProvider>
+    <AppContent />
+  </UserProvider>
+);
+
 export default Layout;

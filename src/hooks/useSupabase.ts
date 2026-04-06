@@ -42,7 +42,7 @@ export const useSupabase = () => {
     //     },
     //   ]);
     // }
-    // console.log(rooms);
+    console.log(rooms);
     setLoading(false);
   };
 
@@ -86,6 +86,27 @@ export const useSupabase = () => {
     return { error };
   };
 
+  // 6. Lưu đội hình tàu (Dàn trận)
+  const saveShipLayout = async (gameId: string, userId: string, ships: any[]) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("game_boards")
+      .upsert({
+        game_id: gameId,
+        user_id: userId,
+        ships_data: ships,
+        is_ready: true,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'game_id, user_id'
+      })
+      .select()
+      .single();
+
+    setLoading(false);
+    return { data, error };
+  };
+
   // 4. Realtime Subscription (Lắng nghe thay đổi)
   useEffect(() => {
     const channel = supabase
@@ -102,5 +123,5 @@ export const useSupabase = () => {
     };
   }, []);
 
-  return { rooms, loading, fetchRooms, createRoom, joinRoom, deleteRoom };
+  return { rooms, loading, fetchRooms, createRoom, joinRoom, deleteRoom, saveShipLayout };
 };

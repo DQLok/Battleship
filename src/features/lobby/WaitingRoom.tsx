@@ -4,7 +4,9 @@ import { supabase } from "@/api/supabaseClient";
 import { useLocation } from "react-router-dom";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
-import { getUserInfo } from "zmp-sdk";
+import { getUserInfo, showToast } from "zmp-sdk";
+import { getAppUserId } from "@/utils/user-info";
+import { useUser } from "@/context/UserContext";
 
 const generateFakePlayers = (count: number): Profile[] => {
   const names = [
@@ -40,9 +42,10 @@ export const WaitingRoom = () => {
   const [game, setGame] = useState<any>(null);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [myId, setMyId] = useState("");
+  const { user } = useUser();
 
   const handleAction = async () => {
-    if (!game) return;    
+    if (!game) return;
 
     if (game.host_id === myId) {
       // --- KỊCH BẢN CHO HOST: BẮT ĐẦU GAME ---
@@ -76,7 +79,7 @@ export const WaitingRoom = () => {
 
   // 1. Fetch dữ liệu phòng và người chơi
   const fetchData = async () => {
-    console.log(gameId+", "+myId);
+    console.log(gameId + ", " + myId);
     const { data: gameData } = await supabase
       .from("games")
       .select("*")
@@ -97,7 +100,12 @@ export const WaitingRoom = () => {
 
   // 2. Realtime lắng nghe thay đổi (Khi có người Join/Leave)
   useEffect(() => {
-    getUserInfo({}).then((res) => setMyId(res.userInfo.id));
+    if (!user) {
+      showToast({ message: "Vui lòng đăng nhập!" });
+      return;
+    }
+    setMyId(user.id);
+
     fetchData();
 
     const channel = supabase

@@ -12,19 +12,26 @@ import {
   useSnackbar,
 } from "zmp-ui";
 import { useSupabase } from "@/hooks/useSupabase";
-import { getUserInfo } from "zmp-sdk";
+import { getUserInfo, showToast } from "zmp-sdk";
 import { useNavigate } from "react-router-dom";
 import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
+import { getAppUserId } from "@/utils/user-info";
+import { useUser } from "@/context/UserContext";
 
 export const LobbyPage = () => {
   const { rooms, createRoom, joinRoom, fetchRooms, deleteRoom } = useSupabase();
-  const [myId, setMyId] = useState("");
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
+  const { user } = useUser();
+  const [myId, setMyId] = useState("");
 
   useEffect(() => {
-    getUserInfo({}).then((res) => setMyId(res.userInfo.id));
+    if (!user) {
+      showToast({ message: "Vui lòng đăng nhập!" });
+      return;
+    }
+    setMyId(user.id);
     fetchRooms(); // Lấy dữ liệu lần đầu
   }, []);
 
