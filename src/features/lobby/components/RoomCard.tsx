@@ -1,100 +1,173 @@
-import { Box, Text, Button, Avatar, Icon } from "zmp-ui";
+import React from "react";
+import { Box, Text, Button, Avatar, Icon, useNavigate } from "zmp-ui";
 
 interface RoomCardProps {
   room: any;
   myId: string;
   onJoin: (gameId: string) => void;
+  onDelete: (gameId: string) => void;
 }
 
-const RoomCard = ({ room, myId, onJoin }: RoomCardProps) => {
-  const isFull = room.members.length > 1;
+const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
+  const memberCount = room.members?.length || 0;
+  const isFull = memberCount >= 8;
   const isMine = room.host_id === myId;
-  const host = room.host; // Data join từ bảng profiles
+  const isPlaying = room.status === "playing";
+  const host = room.host;
+  const navigate = useNavigate();
+
+  // Hàm xử lý điều hướng chung dựa trên status
+  const goToRoom = () => {
+    const targetPath = isPlaying ? "/combat" : "/waiting";
+    navigate(targetPath, { state: { gameId: room.id } });
+  };
+
+  const handleAction = (e: React.MouseEvent, callback: () => void) => {
+    e.stopPropagation();
+    callback();
+  };
 
   return (
     <Box
-      className="relative overflow-hidden mb-4"
+      className="relative overflow-hidden mb-4 transition-all active:scale-[0.98] cursor-pointer"
+      onClick={goToRoom}
       style={{
-        background: "rgba(10, 26, 31, 0.9)",
-        borderLeft: "4px solid #00e5ff",
-        boxShadow: "0 0 15px rgba(0, 229, 255, 0.1)",
+        background: isMine ? "rgba(20, 40, 45, 0.95)" : "rgba(10, 26, 31, 0.9)",
+        borderLeft: isMine
+          ? "4px solid #facc15"
+          : isPlaying
+          ? "4px solid #ef4444"
+          : "4px solid #00e5ff",
+        boxShadow: isMine
+          ? "0 0 20px rgba(250, 204, 21, 0.15)"
+          : "0 0 15px rgba(0, 229, 255, 0.1)",
         borderRadius: "4px",
       }}
     >
-      {/* Header: ID và Số lượng người */}
+      {/* Header: ID và Status */}
       <Box
         flex
         flexDirection="row"
         justifyContent="space-between"
         p={3}
-        className="border-b border-gray-800"
+        className="border-b border-gray-800/50"
       >
         <Box flex flexDirection="row" alignItems="center">
           <Text
             size="xxSmall"
-            className="px-2 py-0.5 bg-cyan-900 text-cyan-400 rounded mr-2 uppercase font-bold"
+            className={`px-2 py-0.5 rounded mr-2 uppercase font-bold ${
+              isMine
+                ? "bg-yellow-900 text-yellow-400"
+                : "bg-cyan-900 text-cyan-400"
+            }`}
           >
-            #{room.id.slice(0, 4)}
+            #{room.id.slice(0, 4).toUpperCase()}
           </Text>
           <Text
             size="small"
             bold
-            className="text-white uppercase tracking-widest"
+            className={`${
+              isPlaying ? "text-red-500 animate-pulse" : "text-green-400"
+            } uppercase tracking-widest`}
           >
-            {room.status === "playing" ? "In Battle" : "Waiting"}
+            {isPlaying ? "• In Battle" : "• Waiting"}
           </Text>
         </Box>
-        <Box flex alignItems="center" className="text-cyan-400">
-          <Icon icon="zi-user" size={14} />
+
+        <Box
+          flex
+          alignItems="center"
+          className={isPlaying ? "text-red-400" : "text-cyan-400"}
+        >
+          <Icon icon="zi-group" size={14} />
           <Text size="small" className="ml-1 font-mono">
-            {isFull ? "2/2" : "1/2"}
+            {memberCount}/8
           </Text>
         </Box>
       </Box>
 
-      {/* Body: Thông tin chủ phòng */}
+      {/* Body: Host Info */}
       <Box p={3} flex flexDirection="row" alignItems="center">
         <div className="relative">
           <Avatar
             src={host?.avatar_url}
             size={48}
-            className="border border-cyan-500 p-0.5"
+            className={`border p-0.5 ${
+              isMine ? "border-yellow-500" : "border-cyan-500"
+            }`}
           />
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0a1a1f]"></div>
+          {isMine && (
+            <div className="absolute -top-1 -left-1 bg-yellow-500 text-[8px] px-1 font-black text-black rounded-sm shadow-lg">
+              HOST
+            </div>
+          )}
         </div>
 
         <Box ml={3} flex flexDirection="column">
-          <Text size="xSmall" className="text-cyan-600 font-bold uppercase">
-            {room.room_name}
+          <Text
+            size="xSmall"
+            className="text-cyan-600 font-bold uppercase tracking-tighter"
+          >
+            {room.room_name || "STRATEGY_DECK"}
           </Text>
-          <Text bold className="text-gray-100 text-lg">
-            {host?.username || "Unknown Captain"}
+          <Text bold className="text-gray-100 text-lg leading-tight">
+            {isMine ? "YOU (COMMANDER)" : host?.username || "Unknown Captain"}
           </Text>
         </Box>
       </Box>
 
-      {/* Footer: Nút bấm */}
-      <Box px={3} pb={3}>
+      {/* Footer: Actions */}
+      <Box px={3} pb={3} flex flexDirection="row">
+        {isMine && (
+          <Button
+            variant="secondary"
+            type="neutral"
+            className="h-10 w-12 bg-red-900/20 border-red-500/50 text-red-500 p-0 flex items-center justify-center shrink-0"
+            onClick={(e) => handleAction(e, () => onDelete(room.id))}
+          >
+            <Icon icon="zi-delete" size={20} />
+          </Button>
+        )}
+
         <Button
           fullWidth
-          disabled={isFull || isMine}
-          onClick={() => onJoin(room.id)}
-          className={`h-10 uppercase font-bold tracking-tighter ${
-            isFull || isMine
-              ? "bg-gray-100 text-black-500"
-              : "bg-gradient-to-r from-cyan-700 to-cyan-400 text-black active:opacity-80"
+          disabled={isFull && !isMine && !room.members?.includes(myId)}
+          onClick={(e) =>
+            handleAction(e, () => {
+              if (isMine || room.members?.includes(myId)) {
+                goToRoom();
+              } else {
+                onJoin(room.id);
+              }
+            })
+          }
+          className={`h-10 uppercase font-black tracking-tighter flex-1 ${
+            isMine
+              ? "bg-yellow-500 text-black"
+              : isPlaying
+              ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              : isFull
+              ? "bg-gray-800 text-gray-500"
+              : "bg-cyan-400 text-black"
           }`}
-          style={{
-            borderRadius: "2px",
-            border: "none",
-          }}
+          style={{ borderRadius: "2px", border: "none" }}
         >
-          {isMine ? "Phòng của bạn" : isFull ? "Full Room" : "Tham gia"}
+          {isMine || room.members?.includes(myId)
+            ? isPlaying
+              ? "VÀO CHIẾN TRƯỜNG"
+              : "VÀO PHÒNG CHỜ"
+            : isFull
+            ? "FULL UNIT"
+            : "GIA NHẬP"}
         </Button>
       </Box>
 
-      {/* Trang trí góc (Glow effect) */}
-      <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-500 opacity-5 blur-3xl pointer-events-none"></div>
+      {/* Decor Background Glow */}
+      <div
+        className={`absolute top-0 right-0 w-24 h-24 opacity-10 blur-3xl pointer-events-none ${
+          isMine ? "bg-yellow-500" : isPlaying ? "bg-red-500" : "bg-cyan-500"
+        }`}
+      ></div>
     </Box>
   );
 };

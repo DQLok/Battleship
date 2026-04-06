@@ -126,3 +126,14 @@ body {
   flex-direction: column;
   background-color: var(--bg);
 }
+
+/* Ẩn thanh cuộn cho Chrome, Safari và Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ẩn thanh cuộn cho IE, Edge và Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

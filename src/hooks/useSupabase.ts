@@ -64,6 +64,19 @@ export const useSupabase = () => {
     return { data, error };
   };
 
+  // 5. Xóa phòng (Chỉ dành cho chủ phòng)
+  const deleteRoom = async (gameId: string, userId: string) => {
+    setLoading(true);
+    const { error } = await supabase
+      .from("games")
+      .delete()
+      .eq("id", gameId)
+      .eq("host_id", userId); // Bảo mật: Chỉ xóa nếu đúng là chủ phòng
+
+    setLoading(false);
+    return { error };
+  };
+
   // 3. Tham gia phòng
   const joinRoom = async (gameId: string, userId: string) => {
     const { error } = await supabase.rpc("join_game_room", {
@@ -89,5 +102,5 @@ export const useSupabase = () => {
     };
   }, []);
 
-  return { rooms, loading, fetchRooms, createRoom, joinRoom };
+  return { rooms, loading, fetchRooms, createRoom, joinRoom, deleteRoom };
 };

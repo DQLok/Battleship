@@ -9,9 +9,9 @@ export default function BottomNav() {
   const activeTab = location.pathname;
 
   const navItems = [
-    { path: "/", label: "Combat", icon: "zi-group-solid" },
+    { path: "/", label: "Home", icon: "zi-group-solid" },
     { path: "/match", label: "Match", icon: "zi-user-search" },
-    { path: "/home", label: "Home", icon: "zi-drag-indicator-solid" },
+    { path: "/combat", label: "Combat", icon: "zi-drag-indicator-solid" },
     { path: "/lobby", label: "Lobby", icon: "zi-more-diamond-solid" },
   ];
 

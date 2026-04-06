@@ -18,7 +18,7 @@ import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
 
 export const LobbyPage = () => {
-  const { rooms, createRoom, joinRoom, fetchRooms } = useSupabase();
+  const { rooms, createRoom, joinRoom, fetchRooms, deleteRoom } = useSupabase();
   const [myId, setMyId] = useState("");
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
@@ -35,16 +35,58 @@ export const LobbyPage = () => {
       openSnackbar({ message: error.code });
       return;
     }
-    if (data) navigate(`/combat?gameId=${data.id}`);
+    // if (data) navigate(`/combat?gameId=${data.id}`);
+    navigate(`/waiting`);
+  };
+
+  const handleDelete = async (gameId: string) => {
+    const { error } = await deleteRoom(gameId, myId);
+    if (error) {
+      openSnackbar({
+        message: "Không thể xóa phòng: " + error.message,
+        type: "error",
+      });
+    } else {
+      openSnackbar({
+        message: "Đã giải tán phòng thành công!",
+        type: "success",
+      });
+      fetchRooms(); // Tải lại danh sách
+    }
   };
 
   const handleJoin = async (gameId: string) => {
-    const { error } = await joinRoom(gameId, myId);
-    if (!error) navigate(`/combat?gameId=${gameId}`);
+    // 1. Tìm thông tin phòng hiện tại trong danh sách rooms đã fetch
+    const targetRoom = rooms.find((r) => r.id === gameId);
+    if (!targetRoom) return;
+
+    // 2. Nếu người chơi chưa có trong phòng, hãy gọi RPC để gia nhập
+    const isMember = targetRoom.members?.includes(myId);
+    const isHost = targetRoom.host_id === myId;
+
+    if (!isMember && !isHost) {
+      const { error } = await joinRoom(gameId, myId);
+      if (error) {
+        openSnackbar({
+          message: "Không thể vào phòng: " + error.message,
+          type: "error",
+        });
+        return;
+      }
+    }
+
+    // 3. Điều hướng dựa trên trạng thái (Status) của phòng
+    if (targetRoom.status === "playing") {
+      // Nếu đang đánh nhau -> Vào thẳng bàn cờ
+      navigate("/combat", { state: { gameId } });
+    } else {
+      // Nếu đang đợi -> Vào phòng chờ
+      navigate("/waiting", { state: { gameId } });
+    }
   };
 
   // Logic phân loại phòng cho 2 Tab
-  const waitingRooms = rooms.filter((r) => r.status === "waiting");
+  const waitingRooms = rooms; //.filter((r) => r.status === "waiting");
   const friendRooms = rooms.filter(
     (r) => r.status === "waiting" && r.player_1 !== myId
   );
@@ -64,6 +106,7 @@ export const LobbyPage = () => {
                 key={room.id}
                 room={room}
                 onJoin={handleJoin}
+                onDelete={handleDelete}
                 myId={myId}
               />
             ))}
@@ -76,6 +119,7 @@ export const LobbyPage = () => {
                 key={room.id}
                 room={room}
                 onJoin={handleJoin}
+                onDelete={handleDelete}
                 myId={myId}
               />
             ))}

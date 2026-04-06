@@ -56,6 +56,7 @@ const CombatPage: React.FC = () => {
         overflow: draggingShip ? "hidden" : "auto",
         backgroundColor: "#061421",
       }}
+      hideScrollbar
     >
       <Header
         title={inBattle ? "GIAO TRANH" : "THIẾT LẬP HẠM ĐỘI"}
