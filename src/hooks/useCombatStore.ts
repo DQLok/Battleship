@@ -34,7 +34,7 @@ interface CombatState {
   lastBotAttack: { x: number; y: number } | null;
   playerHits: { x: number; y: number; isHit: boolean }[];
   enemyHits: { x: number; y: number; isHit: boolean }[];
-  sunkShipsData: { name: string, coords: {x: number, y: number}[] }[];
+  sunkShipsData: { name: string; coords: { x: number; y: number }[] }[];
 
   // Actions
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
@@ -310,57 +310,92 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   recordMove: (userId, x, y, isHit, currentUserId, sunkShipName) => {
     const status = isHit ? "hit" : "miss";
     const isOpponentMove = userId !== currentUserId;
-  
+
     set((state) => {
-      // 1. Cập nhật Grid
+      // 1. Cập nhật Grid trước để có dữ liệu mới nhất cho việc truy vết
       const targetGridKey = isOpponentMove ? "playerGrid" : "enemyGrid";
       const newGrid = state[targetGridKey].map((row, rIdx) =>
         rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
       );
-  
-      // 2. Xử lý danh sách tên tàu chìm (để gạch tên trong danh sách)
-      let newSunkShips = state.sunkShips;
-      if (!isOpponentMove && sunkShipName) {
-        if (!newSunkShips.includes(sunkShipName)) {
-          newSunkShips = [...newSunkShips, sunkShipName];
+
+      // 2. Xử lý danh sách tên tàu chìm
+      let newSunkShips = [...state.sunkShips];
+      if (
+        !isOpponentMove &&
+        sunkShipName &&
+        !newSunkShips.includes(sunkShipName)
+      ) {
+        newSunkShips.push(sunkShipName);
+      }
+
+      // 3. XỬ LÝ TRUY VẾT TÀU ĐẮM (FLOOD FILL)
+      let newSunkShipsData = [...state.sunkShipsData];
+
+      // Chỉ thực hiện truy vết khi có thông báo tàu chìm từ phía mình bắn (enemyGrid)
+      if (sunkShipName && !isOpponentMove) {
+        const connectedHitCoords: { x: number; y: number }[] = [];
+        const visited = new Set<string>();
+
+        // Hàm tìm các ô 'hit' dính liền nhau (ngang/dọc)
+        const findConnectedHits = (cx: number, cy: number) => {
+          const key = `${cx},${cy}`;
+          if (
+            cx < 0 ||
+            cx >= 10 ||
+            cy < 0 ||
+            cy >= 10 ||
+            visited.has(key) ||
+            newGrid[cy][cx] !== "hit"
+          )
+            return;
+
+          visited.add(key);
+          connectedHitCoords.push({ x: cx, y: cy });
+
+          // Loang ra 4 hướng
+          findConnectedHits(cx + 1, cy);
+          findConnectedHits(cx - 1, cy);
+          findConnectedHits(cx, cy + 1);
+          findConnectedHits(cx, cy - 1);
+        };
+
+        // Bắt đầu quét từ ô vừa bắn trúng kết liễu
+        findConnectedHits(x, y);
+
+        // Cập nhật hoặc thêm mới dữ liệu tàu đắm
+        const existingIdx = newSunkShipsData.findIndex(
+          (d) => d.name === sunkShipName
+        );
+        if (existingIdx > -1) {
+          newSunkShipsData[existingIdx] = {
+            name: sunkShipName,
+            coords: connectedHitCoords,
+          };
+        } else {
+          newSunkShipsData.push({
+            name: sunkShipName,
+            coords: connectedHitCoords,
+          });
         }
       }
 
-      // 3. Xử lý tọa độ tàu đắm (Để UI hiện hiệu ứng lửa 🔥)
-      let newSunkShipsData = [...state.sunkShipsData];
-      
-      // Nếu mình vừa bắn chìm tàu địch, hoặc đối thủ bắn chìm tàu mình
-      if (sunkShipName) {
-        // Nếu ô vừa bắn trúng là phát súng kết liễu, ta lưu nó vào data
-        // Trong thực tế, vì ta không biết các ô khác của tàu địch, 
-        // ta sẽ coi mọi ô 'hit' kề nhau là một phần của hiệu ứng
-        const existingSunk = newSunkShipsData.find(d => d.name === sunkShipName);
-        if (!existingSunk) {
-            newSunkShipsData.push({ 
-                name: sunkShipName, 
-                coords: [{ x, y }] // Tạm thời lưu ô kết liễu để UI highlight
-            });
-        }
-      }
-  
       // 4. Logic giữ lượt
-      let nextTurn = state.turn; 
+      let nextTurn = state.turn;
       if (!isHit) {
-        nextTurn = isOpponentMove; 
+        nextTurn = isOpponentMove;
       }
-  
+
       return {
         [targetGridKey]: newGrid,
         sunkShips: newSunkShips,
         sunkShipsData: newSunkShipsData,
         turn: nextTurn,
-        ...(isOpponentMove 
-            ? { lastBotAttack: { x, y } } 
-            : { lastPlayerAttack: { x, y } }
-        ),
+        ...(isOpponentMove
+          ? { lastBotAttack: { x, y } }
+          : { lastPlayerAttack: { x, y } }),
       };
     });
-  
+
     get().checkGameOver();
   },
 
@@ -377,7 +412,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const allPlayerSunk =
       placedShips.length > 0 &&
       placedShips.every((s) => get().isShipSunk(playerGrid, s));
-      
+
     if (allPlayerSunk) {
       set({ winner: "enemy" });
     }
