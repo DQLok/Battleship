@@ -18,7 +18,7 @@ import "@/css/children/CombatPage.scss";
 const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
-  const { saveShipLayout } = useSupabase();
+  const { saveShipLayout, finishGame, isFinishing } = useSupabase();
 
   const {
     placedShips,
@@ -30,20 +30,92 @@ const CombatPage: React.FC = () => {
     turn,
     autoPlaceShips,
     recordMove,
+    resetShips,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
   const [isReadySent, setIsReadySent] = useState(false);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
+  const opponentId = state?.opponentId;
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
 
-  // --- 1. REALTIME ENGINE ---
+  // --- 1. REALTIME ENGINE (MOVES) ---
+  // useEffect(() => {
+  //   if (!gameId || !user || winner) return;
+
+  //   const combatChannel = supabase
+  //     .channel(`game_${gameId}`)
+  //     .on(
+  //       "postgres_changes",
+  //       {
+  //         event: "INSERT",
+  //         schema: "public",
+  //         table: "moves",
+  //         filter: `game_id=eq.${gameId}`,
+  //       },
+  //       (payload) => {
+  //         const move = payload.new;
+  //         console.log("🎯 gooooo");
+  //         recordMove(
+  //           move.user_id,
+  //           move.x,
+  //           move.y,
+  //           move.is_hit,
+  //           user.id,
+  //           move.sunk_ship_name
+  //         );
+
+  //         const isMine = move.user_id === user.id;
+
+  //         showToast({
+  //           message: move.is_hit
+  //             ? isMine
+  //               ? "🎯 TRÚNG RỒI!"
+  //               : "⚠️ ĐỊCH BẮN TRÚNG!"
+  //             : isMine
+  //             ? "🌊 HỤT RỒI!"
+  //             : "🛡️ ĐỐI THỦ BẮN HỤT!",
+  //         });
+  //       }
+  //     )
+
+  //     // --- LẮNG NGHE ĐỐI THỦ SẴN SÀNG (Để tự động Start Battle) ---
+
+  //     // .on(
+  //     //   "postgres_changes",
+  //     //   {
+  //     //     event: "UPDATE",
+  //     //     schema: "public",
+  //     //     table: "game_boards",
+  //     //     filter: `game_id=eq.${gameId}`,
+  //     //   },
+  //     //   (payload) => {
+  //     //     console.log("🎯 ĐỐI THỦ SẴN SÀNG!");
+  //     //     if (payload.new.user_id !== user.id && payload.new.is_ready) {
+  //     //       setEnemyShips(payload.new.ships_data);
+  //     //       if (isReadySent) {
+  //     //         setInBattle(true);
+  //     //         setTurn(true);
+  //     //         showToast({ message: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
+  //     //       }
+  //     //     }
+  //     //   }
+  //     // )
+
+  //     .subscribe();
+
+  //   return () => {
+  //     supabase.removeChannel(combatChannel);
+  //   };
+  // }, [gameId, user?.id, isReadySent, winner]);
+
   useEffect(() => {
     if (!gameId || !user) return;
-
-    const combatChannel = supabase
-      .channel(`game_${gameId}`)
+  
+    // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
+    const moveChannel = supabase
+      .channel(`moves_${gameId}`) // Tên channel khác đi một chút
       .on(
         "postgres_changes",
         {
@@ -52,68 +124,91 @@ const CombatPage: React.FC = () => {
           table: "moves",
           filter: `game_id=eq.${gameId}`,
         },
-        async (payload) => {
-          const move = payload.new;
-          const isMine = move.user_id === user.id;
-
+        (payload) => {
+          console.log("🎯 Move Event:", payload.new);
           recordMove(
-            move.user_id,
-            move.x,
-            move.y,
-            move.is_hit,
+            payload.new.user_id,
+            payload.new.x,
+            payload.new.y,
+            payload.new.is_hit,
             user.id,
-            move.sunk_ship_name
+            payload.new.sunk_ship_name
           );
-
-          if (move.is_hit) {
-            showToast({
-              message: isMine
-                ? "🎯 TRÚNG RỒI! Bắn tiếp đi!"
-                : "⚠️ Địch bắn trúng! Chúng đang bắn tiếp...",
-            });
-          } else {
-            showToast({
-              message: isMine
-                ? "🌊 Hụt rồi! Đổi lượt."
-                : "🛡️ Đối thủ bắn hụt! Đến lượt bạn.",
-            });
+        }
+      )
+      .subscribe();
+  
+    // --- CHANNEL 2: CHUYÊN XỬ LÝ TRẠNG THÁI SẴN SÀNG (BOARDS) ---
+    const boardChannel = supabase
+      .channel(`boards_${gameId}`) // Tên channel khác
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "game_boards",
+          filter: `game_id=eq.${gameId}`,
+        },
+        (payload) => {
+          console.log("⚓ Board Event:", payload.new);
+          if (payload.new.user_id !== user.id && payload.new.is_ready) {
+            setEnemyShips(payload.new.ships_data);
+            // Kiểm tra trực tiếp từ store để tránh closure cũ
+            const currentPlacedShips = useCombatStore.getState().placedShips;
+            if (currentPlacedShips.length === 4) {
+              setInBattle(true);
+              setTurn(true);
+              showToast({ message: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
+            }
           }
         }
       )
       .subscribe();
-
+  
     return () => {
-      console.log("alooooo");
-      supabase.removeChannel(combatChannel);
+      console.log("🔌 Cleaning up channels...");
+      supabase.removeChannel(moveChannel);
+      supabase.removeChannel(boardChannel);
     };
-  }, [gameId, user?.id, isReadySent]);
+  }, [gameId, user?.id]); // Chỉ phụ thuộc vào ID cơ bản
 
-  // --- 2. LOGIC BẮN (MULTI PLAYER) ---
+  // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
+  //Thêm useEffect này bên dưới cái Realtime của bạn
+  useEffect(() => {
+    console.log("🎉 Game Over! Dự dẹp dữ liệu trán đấu...");
+    const handleCleanUp = async () => {
+      if (winner && gameId && !isFinishing) {
+        // Winner ID: Nếu mình thắng thì là user.id, nếu địch thắng thì là opponentId
+        const winnerId = winner === "player" ? user?.id : opponentId;
+
+        if (winnerId) {
+          console.log(
+            "🛠️ Đang dọn dẹp dữ liệu trận đấu và cập nhật Profile..."
+          );
+          await finishGame(gameId, winnerId);
+        }
+      }
+    };
+
+    handleCleanUp();
+  }, [winner, gameId]);
+
+  // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
-    if (!inBattle || !turn || !user) return;
-
-    // Check hit cục bộ dựa trên enemyShips đã sync
-    // const isHit = enemyShips.some((s) => {
-    //   for (let i = 0; i < s.size; i++) {
-    //     const sx = s.isHorizontal ? s.x + i : s.x;
-    //     const sy = s.isHorizontal ? s.y : s.y + i;
-    //     if (sx === x && sy === y) return true;
-    //   }
-    //   return false;
-    // });
+    if (!inBattle || !turn || !user || isFinishing) return;
+    console.log("🎯 MẫU BẮN TRÚNG RỒI!");
 
     const { error } = await supabase.from("moves").insert({
       game_id: gameId,
       user_id: user.id,
       x,
       y,
-      // Không cần tính is_hit ở đây, DB Trigger sẽ tự override giá trị này
     });
 
-    if (error) console.error("Lỗi pháo kích:", error);
+    if (error) showToast({ message: "Pháo kích thất bại!" });
   };
 
-  // --- 3. KHỞI CHẠY CHIẾN DỊCH ---
+  // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
   const handleStartBattle = async () => {
     if (!isReadyToStart || !user) return;
 
@@ -125,15 +220,14 @@ const CombatPage: React.FC = () => {
 
     setIsReadySent(true);
 
-    // Kiểm tra xem đối thủ đã "ở đó" chưa
     const { data: opponent } = await supabase
       .from("game_boards")
-      .select("ships_data")
+      .select("ships_data, is_ready")
       .eq("game_id", gameId)
       .neq("user_id", user.id)
       .maybeSingle();
 
-    if (opponent) {
+    if (opponent?.is_ready) {
       setEnemyShips(opponent.ships_data);
       setInBattle(true);
       setTurn(true);
@@ -141,6 +235,12 @@ const CombatPage: React.FC = () => {
     } else {
       showToast({ message: "Đang đợi đối thủ dàn trận..." });
     }
+  };
+
+  const handleEndSession = () => {
+    console.log("🏆 Game Over! Dự dẹp dữ liệu trán đấu...");
+    resetShips(); // Clear zustand
+    window.location.reload(); // Hoặc navigate về Home
   };
 
   return (
@@ -269,6 +369,7 @@ const CombatPage: React.FC = () => {
         </Box>
       </Box>
 
+      {/* MODAL KẾT THÚC (Tích hợp trạng thái dọn dẹp) */}
       <Modal
         visible={!!winner}
         title={winner === "player" ? "VICTORY" : "DEFEAT"}
@@ -283,12 +384,26 @@ const CombatPage: React.FC = () => {
               ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH!"
               : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI."}
           </Text>
+
+          <Box className="mt-4 py-2 border-t border-cyan-900/30">
+            {isFinishing ? (
+              <Text size="xxSmall" className="text-cyan-600 animate-pulse">
+                ĐANG LƯU DỮ LIỆU CHIẾN TRƯỜNG...
+              </Text>
+            ) : (
+              <Text size="xxSmall" className="text-green-500">
+                DỮ LIỆU ĐÃ ĐƯỢC TỐI ƯU HÓA.
+              </Text>
+            )}
+          </Box>
+
           <Button
             fullWidth
-            className="mt-8 bg-cyan-500"
-            onClick={() => window.location.reload()}
+            disabled={isFinishing}
+            className={`mt-8 ${isFinishing ? "bg-gray-700" : "bg-cyan-500"}`}
+            onClick={handleEndSession}
           >
-            KẾT THÚC
+            QUAY LẠI CĂN CỨ
           </Button>
         </Box>
       </Modal>

@@ -22,21 +22,27 @@ interface DraggingState extends Ship {
 }
 
 interface CombatState {
+  // States
+  gameId: string | null;
+  user: any;
+  opponentId: string | null;
   playerGrid: CellStatus[][];
   enemyGrid: CellStatus[][];
   placedShips: Ship[];
   draggingShip: DraggingState | null;
   enemyShips: Ship[];
   turn: boolean;
-  winner: "player" | "enemy" | null; // Đổi 'bot' thành 'enemy' cho đúng bản chất PVP
+  winner: "player" | "enemy" | null;
   lastPlayerAttack: { x: number; y: number } | null;
   lastBotAttack: { x: number; y: number } | null;
-  playerHits: { x: number; y: number; isHit: boolean }[];
-  enemyHits: { x: number; y: number; isHit: boolean }[];
+  sunkShips: string[];
   sunkShipsData: { name: string; coords: { x: number; y: number }[] }[];
+  isProcessing: boolean;
 
   // Actions
+  initGame: (gameId: string, user: any, opponentId: string) => void;
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
+  generateRandomFleet: () => Ship[];
   setDraggingShip: (ship: { size: number; name: string } | null) => void;
   updateDraggingPos: (x: number, y: number) => void;
   placeShip: () => boolean;
@@ -47,9 +53,6 @@ interface CombatState {
   autoPlaceShips: () => void;
   setEnemyShips: (ships: Ship[]) => void;
   setTurn: (turn: boolean) => void;
-
-  // Logic Multiplayer chính
-  sunkShips: string[];
   recordMove: (
     userId: string,
     x: number,
@@ -58,7 +61,7 @@ interface CombatState {
     currentUserId: string,
     sunkShipName?: string
   ) => void;
-  checkGameOver: () => void;
+  checkGameOver: () => Promise<void>;
 
   // Helpers
   checkValidPlacement: (
@@ -68,7 +71,6 @@ interface CombatState {
     isH: boolean,
     existingShips: Ship[]
   ) => boolean;
-  generateRandomFleet: () => Ship[];
   isShipSunk: (grid: CellStatus[][], ship: Ship) => boolean;
 }
 
@@ -78,6 +80,9 @@ const createEmptyGrid = () =>
     .map(() => Array(10).fill("empty"));
 
 export const useCombatStore = create<CombatState>((set, get) => ({
+  gameId: null,
+  user: null,
+  opponentId: null,
   playerGrid: createEmptyGrid(),
   enemyGrid: createEmptyGrid(),
   placedShips: [],
@@ -87,10 +92,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastPlayerAttack: null,
   lastBotAttack: null,
   winner: null,
-  playerHits: [],
-  enemyHits: [],
   sunkShips: [],
   sunkShipsData: [],
+  isProcessing: false,
+
+  initGame: (gameId, user, opponentId) => set({ gameId, user, opponentId }),
 
   refreshGrid: (ships, ghost) => {
     const newGrid = createEmptyGrid();
@@ -290,10 +296,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       lastPlayerAttack: null,
       lastBotAttack: null,
       winner: null,
-      playerHits: [],
-      enemyHits: [],
       sunkShips: [],
-      sunkShipsData: [], // Reset dữ liệu tàu đắm
+      sunkShipsData: [],
+      isProcessing: false,
     });
   },
 
@@ -311,13 +316,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const isOpponentMove = userId !== currentUserId;
 
     set((state) => {
-      // 1. Cập nhật Grid trước để có dữ liệu mới nhất cho việc truy vết
       const targetGridKey = isOpponentMove ? "playerGrid" : "enemyGrid";
       const newGrid = state[targetGridKey].map((row, rIdx) =>
         rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
       );
 
-      // 2. Xử lý danh sách tên tàu chìm
       let newSunkShips = [...state.sunkShips];
       if (
         !isOpponentMove &&
@@ -327,15 +330,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         newSunkShips.push(sunkShipName);
       }
 
-      // 3. XỬ LÝ TRUY VẾT TÀU ĐẮM (FLOOD FILL)
       let newSunkShipsData = [...state.sunkShipsData];
-
-      // Chỉ thực hiện truy vết khi có thông báo tàu chìm từ phía mình bắn (enemyGrid)
       if (sunkShipName && !isOpponentMove) {
         const connectedHitCoords: { x: number; y: number }[] = [];
         const visited = new Set<string>();
-
-        // Hàm tìm các ô 'hit' dính liền nhau (ngang/dọc)
         const findConnectedHits = (cx: number, cy: number) => {
           const key = `${cx},${cy}`;
           if (
@@ -350,18 +348,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
           visited.add(key);
           connectedHitCoords.push({ x: cx, y: cy });
-
-          // Loang ra 4 hướng
           findConnectedHits(cx + 1, cy);
           findConnectedHits(cx - 1, cy);
           findConnectedHits(cx, cy + 1);
           findConnectedHits(cx, cy - 1);
         };
 
-        // Bắt đầu quét từ ô vừa bắn trúng kết liễu
         findConnectedHits(x, y);
-
-        // Cập nhật hoặc thêm mới dữ liệu tàu đắm
         const existingIdx = newSunkShipsData.findIndex(
           (d) => d.name === sunkShipName
         );
@@ -379,7 +372,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       }
 
       // 4. Logic giữ lượt
+
       let nextTurn = state.turn;
+
       if (!isHit) {
         nextTurn = isOpponentMove;
       }
@@ -398,22 +393,25 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     get().checkGameOver();
   },
 
-  checkGameOver: () => {
-    const { sunkShips, placedShips, playerGrid } = get();
+  checkGameOver: async () => {
+    const { sunkShips, placedShips, playerGrid, winner } = get();
 
-    // Mình thắng: Dựa trên số lượng tàu chìm mà DB xác nhận
+    // Nếu đã có người thắng thì không chạy lại
+    if (winner) return;
+
+    let currentWinner: "player" | "enemy" | null = null;
+
     if (sunkShips.length === SHIPS_DATA.length) {
-      set({ winner: "player" });
-      return;
+      currentWinner = "player";
+    } else {
+      const allPlayerSunk =
+        placedShips.length > 0 &&
+        placedShips.every((s) => get().isShipSunk(playerGrid, s));
+      if (allPlayerSunk) currentWinner = "enemy";
     }
 
-    // Địch thắng: Kiểm tra thực tế trên lưới nhà
-    const allPlayerSunk =
-      placedShips.length > 0 &&
-      placedShips.every((s) => get().isShipSunk(playerGrid, s));
-
-    if (allPlayerSunk) {
-      set({ winner: "enemy" });
+    if (currentWinner) {
+      set({ winner: currentWinner });
     }
   },
 }));

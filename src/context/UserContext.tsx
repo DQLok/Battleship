@@ -1,7 +1,13 @@
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
 import { getAppUserId } from "@/utils/user-info";
-import { ReactNode, createContext, useContext, useEffect, useState } from "react";
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { getUserInfo } from "zmp-sdk";
 
 interface UserContextType {
@@ -32,11 +38,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         };
 
         // Sync Supabase ngay tại đây
-        await supabase.from("profiles").upsert({
-          id: userData.id,
-          username: userData.name,
-          updated_at: new Date(),
-        });
+        await supabase.from("profiles").upsert(
+          {
+            id: userData.id,
+            username: userData.name,
+            avatar_url: userData.avatar,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
 
         setUser(userData);
       } catch (e) {

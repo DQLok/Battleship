@@ -1,10 +1,12 @@
 // src/hooks/useSupabase.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
+import { showToast } from "zmp-sdk";
 
 export const useSupabase = () => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   // 1. Fetch danh sách phòng
   const fetchRooms = async () => {
@@ -87,24 +89,66 @@ export const useSupabase = () => {
   };
 
   // 6. Lưu đội hình tàu (Dàn trận)
-  const saveShipLayout = async (gameId: string, userId: string, ships: any[]) => {
+  const saveShipLayout = async (
+    gameId: string,
+    userId: string,
+    ships: any[]
+  ) => {
     setLoading(true);
     const { data, error } = await supabase
       .from("game_boards")
-      .upsert({
-        game_id: gameId,
-        user_id: userId,
-        ships_data: ships,
-        is_ready: true,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'game_id, user_id'
-      })
+      .upsert(
+        {
+          game_id: gameId,
+          user_id: userId,
+          ships_data: ships,
+          is_ready: true,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "game_id, user_id",
+        }
+      )
       .select()
       .single();
 
     setLoading(false);
     return { data, error };
+  };
+
+  const finishGame = async (gameId: string, winnerId: string) => {
+    // Tránh gửi yêu cầu trùng lặp nếu đang xử lý
+    if (isFinishing) return false;
+
+    setIsFinishing(true);
+    setLoading(true); // Có thể dùng loading chung để hiện Spinner overlay
+
+    try {
+      const { error } = await supabase.rpc("finish_game", {
+        p_game_id: gameId,
+        p_winner_id: winnerId,
+      });
+
+      if (error) throw error;
+
+      showToast({
+        message: "Trận đấu kết thúc!",
+      });
+
+      // Sau khi kết thúc, ta nên fetch lại danh sách phòng để cập nhật UI Lobby
+      await fetchRooms();
+
+      return true;
+    } catch (err: any) {
+      console.error("Lỗi thực thi finish_game:", err.message);
+      showToast({
+        message: "Lỗi lưu kết quả, vui lòng kiểm tra mạng.",
+      });
+      return false;
+    } finally {
+      setIsFinishing(false);
+      setLoading(false);
+    }
   };
 
   // 4. Realtime Subscription (Lắng nghe thay đổi)
@@ -123,5 +167,15 @@ export const useSupabase = () => {
     };
   }, []);
 
-  return { rooms, loading, fetchRooms, createRoom, joinRoom, deleteRoom, saveShipLayout };
+  return {
+    rooms,
+    loading,
+    isFinishing,
+    fetchRooms,
+    createRoom,
+    joinRoom,
+    deleteRoom,
+    saveShipLayout,
+    finishGame,
+  };
 };
