@@ -1,14 +1,24 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { showToast } from "zmp-sdk";
-import { useBotRealtime } from "@/hooks/useBotRealtime";
 
 const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
+interface GameGridProps {
+  type: "enemy" | "home";
+  onCellClick?: (x: number, y: number) => void;
+}
+
+const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
+  // 1. Selector tối ưu Re-render
+  const displayGrid = useCombatStore((state) =>
+    type === "home" ? state.playerGrid : state.enemyGrid
+  );
+  const lastTarget = useCombatStore((state) =>
+    type === "enemy" ? state.lastPlayerAttack : state.lastBotAttack
+  );
+  const sunkShipsData = useCombatStore((state) => state.sunkShipsData);
   const {
-    playerGrid,
-    enemyGrid,
     draggingShip,
     placedShips,
     placeShip,
@@ -16,17 +26,11 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
     rotateShipAt,
     pickUpShip,
     turn,
+    winner,
     enemyShips,
-    lastPlayerAttack,
-    lastBotAttack,
   } = useCombatStore();
-  const { fireAttack } = useBotRealtime("room-id-123");
-  const lastTarget = type === "enemy" ? lastPlayerAttack : lastBotAttack;
 
-  const displayGrid = type === "home" ? playerGrid : enemyGrid;
   const gridRef = useRef<HTMLDivElement>(null);
-
-  // Ref để quản lý thời gian nhấn giữ
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLongPress, setIsLongPress] = useState(false);
 
@@ -40,18 +44,14 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
     };
   };
 
-  // Logic kéo thả Global (giữ nguyên để mượt mà)
   useEffect(() => {
     if (!draggingShip || type !== "home") return;
-
     const handleMove = (e: TouchEvent) => {
       if (e.cancelable) e.preventDefault();
       const coords = getCoords(e.touches[0].clientX, e.touches[0].clientY);
       if (coords) updateDraggingPos(coords.x, coords.y);
     };
-
     const handleEnd = () => placeShip();
-
     window.addEventListener("touchmove", handleMove, { passive: false });
     window.addEventListener("touchend", handleEnd);
     return () => {
@@ -60,20 +60,23 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
     };
   }, [draggingShip, type, updateDraggingPos, placeShip]);
 
-  // XỬ LÝ SỰ KIỆN CHẠM XUỐNG
   const handleTouchStart = (x: number, y: number) => {
-    const { winner } = useCombatStore.getState();
-    if (winner) return; // KHÓA GRID: Nếu có người thắng, không cho tương tác nữa
+    if (winner) return;
+
     if (type === "enemy") {
-      if (turn && enemyGrid[y][x] === "empty") {
-        fireAttack(x, y);
+      if (!turn) {
+        showToast({ message: "Chờ đến lượt của bạn!" });
+        return;
       }
+      // Ngăn bắn vào ô đã có kết quả
+      if (displayGrid[y][x] !== "empty") {
+        return;
+      }
+      if (onCellClick) onCellClick(x, y);
     }
-    // TRƯỜNG HỢP 1: Tương tác trên lưới nhà (Sắp xếp tàu)
+
     if (type === "home") {
       setIsLongPress(false);
-
-      // Kiểm tra xem vị trí nhấn có tàu đã đặt chưa
       const ship = placedShips.find((s) => {
         for (let i = 0; i < s.size; i++) {
           const cx = s.isHorizontal ? s.x + i : s.x;
@@ -82,46 +85,25 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
         }
         return false;
       });
-
       if (!ship) return;
-
-      // Logic Long Press để "nhấc" tàu lên (Chế độ kéo thả)
       timerRef.current = setTimeout(() => {
         setIsLongPress(true);
         pickUpShip(ship.size);
-        // Tip: Bạn có thể thêm navigator.vibrate(50) để tạo cảm giác haptic
       }, 250);
-      return;
-    }
-
-    // TRƯỜNG HỢP 2: Tương tác trên lưới địch (Tấn công)
-    if (type === "enemy") {
-      // 1. Chỉ cho phép bắn khi đang trong trận (nếu bạn có biến inBattle)
-      // 2. Chỉ cho phép bắn khi tới lượt (turn === true)
-      // 3. Chỉ cho phép bắn vào ô chưa từng bắn (empty)
-      if (turn && enemyGrid[y][x] === "empty") {
-        fireAttack(x, y);
-      } else if (!turn) {
-        showToast({ message: "Đang chờ đối thủ phản pháo..." });
-      }
     }
   };
 
-  // XỬ LÝ KHI NHẤC TAY LÊN
   const handleTouchEnd = (x: number, y: number) => {
-    // Nếu chưa đủ thời gian Long Press (tức là nhấn nhanh)
-    if (!isLongPress && timerRef.current) {
+    if (type === "home" && !isLongPress && timerRef.current) {
       clearTimeout(timerRef.current);
-      const success = rotateShipAt(x, y);
-      if (success === false) {
-        showToast({ message: "Không đủ chỗ để xoay!" });
-      }
+      rotateShipAt(x, y);
     }
     timerRef.current = null;
   };
 
   return (
     <div className="flex flex-col items-center select-none touch-none">
+      {/* Labels A-J */}
       <div className="flex ml-6 mb-1">
         {COL_LABELS.map((l) => (
           <div
@@ -132,7 +114,9 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
           </div>
         ))}
       </div>
+
       <div className="flex">
+        {/* Numbers 1-10 */}
         <div className="flex flex-col mr-1">
           {[...Array(10)].map((_, i) => (
             <div
@@ -143,34 +127,43 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
             </div>
           ))}
         </div>
+
         <div
           ref={gridRef}
-          className="grid grid-cols-10 gap-0.5 p-1 bg-[#0a1a29] border border-cyan-500/30 relative touch-none"
+          className="grid grid-cols-10 gap-0.5 p-1 bg-[#0a1a29] border border-cyan-500/30 relative"
         >
           {displayGrid.map((row, y) =>
             row.map((status, x) => {
               const isLastShot = lastTarget?.x === x && lastTarget?.y === y;
-              // Tìm xem ô hiện tại thuộc con tàu nào đã bị hạ chưa
-              const sunkShip = (
-                type === "enemy" ? enemyShips : placedShips
-              ).find((s) => {
-                let isPart = false;
-                for (let i = 0; i < s.size; i++) {
-                  const cx = s.isHorizontal ? s.x + i : s.x;
-                  const cy = s.isHorizontal ? s.y : s.y + i;
-                  if (cx === x && cy === y) isPart = true;
-                }
-                if (!isPart) return false;
+              let isPartOfSunkShip = false;
 
-                // Kiểm tra xem toàn bộ các ô của tàu này đã là 'hit' chưa
-                const grid = type === "enemy" ? enemyGrid : playerGrid;
-                for (let i = 0; i < s.size; i++) {
-                  const cx = s.isHorizontal ? s.x + i : s.x;
-                  const cy = s.isHorizontal ? s.y : s.y + i;
-                  if (grid[cy][cx] !== "hit") return false;
+              // XÁC ĐỊNH Ô THUỘC TÀU ĐÃ ĐẮM
+              if (type === "enemy") {
+                isPartOfSunkShip = sunkShipsData.some((ship) =>
+                  ship.coords.some((c) => c.x === x && c.y === y)
+                );
+              } else {
+                const myShip = placedShips.find((s) => {
+                  for (let i = 0; i < s.size; i++) {
+                    const cx = s.isHorizontal ? s.x + i : s.x;
+                    const cy = s.isHorizontal ? s.y : s.y + i;
+                    if (cx === x && cy === y) return true;
+                  }
+                  return false;
+                });
+                if (myShip) {
+                  let hitCount = 0;
+                  for (let i = 0; i < myShip.size; i++) {
+                    const cx = myShip.isHorizontal ? myShip.x + i : myShip.x;
+                    const cy = myShip.isHorizontal ? myShip.y : myShip.y + i;
+                    if (displayGrid[cy][cx] === "hit") hitCount++;
+                  }
+                  if (hitCount === myShip.size) isPartOfSunkShip = true;
                 }
-                return true;
-              });
+              }
+
+              // Logic tô màu đỏ: Chỉ tô khi ô đó ĐÃ BỊ BẮN TRÚNG (hit) và THUỘC TÀU ĐẮM
+              const shouldShowRedBg = isPartOfSunkShip && status === "hit";
 
               return (
                 <div
@@ -179,47 +172,56 @@ const GameGrid: React.FC<{ type: "enemy" | "home" }> = ({ type }) => {
                     e.preventDefault();
                     handleTouchStart(x, y);
                   }}
-                  className={`w-7 h-7 border border-cyan-900/30 flex items-center justify-center relative ${
-                    isLastShot ? "z-20" : "z-10"
-                  }`}
+                  onPointerUp={() => handleTouchEnd(x, y)}
+                  className={`w-7 h-7 border border-cyan-900/30 flex items-center justify-center relative transition-all duration-300
+                    ${
+                      shouldShowRedBg
+                        ? "bg-red-600/40 shadow-[inset_0_0_12px_rgba(220,38,38,0.5)]"
+                        : ""
+                    }
+                    ${
+                      status === "hit" && !isPartOfSunkShip
+                        ? "bg-red-500/10"
+                        : ""
+                    }
+                    ${isLastShot ? "z-20" : "z-10"}
+                  `}
                 >
-                  {/* 1. THÂN TÀU (Lưới nhà hoặc Tàu địch đã bị lộ do chìm) */}
-                  {((type === "home" && status === "ship") ||
-                    (type === "enemy" && sunkShip)) && (
+                  {/* 3. HIỂN THỊ ICON: Đã chìm thì tất cả ô 'hit' đổi thành 🔥 */}
+                  {status === "hit" && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span
+                        className={`transition-all duration-500 ${
+                          shouldShowRedBg ? "text-lg scale-110" : "text-sm"
+                        }`}
+                      >
+                        {shouldShowRedBg ? "🔥" : "💥"}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tàu của mình (Lưới trái) */}
+                  {type === "home" && status === "ship" && (
                     <div
-                      className={`w-5 h-5 rounded-sm ${
-                        sunkShip ? "bg-red-800" : "bg-cyan-400"
+                      className={`w-5 h-5 rounded-sm transition-colors duration-700 ${
+                        isPartOfSunkShip
+                          ? "bg-red-600 animate-pulse"
+                          : "bg-cyan-500"
                       }`}
                     />
                   )}
 
-                  {/* 2. HIỆU ỨNG NỔ & TÀU BỊ HẠ */}
-                  {status === "hit" && (
-                    <div className="absolute inset-0 flex items-center justify-center z-30">
-                      <div
-                        className={`w-5 h-5 rounded-sm animate-pulse ${
-                          sunkShip
-                            ? "bg-orange-700 shadow-[0_0_15px_orange]"
-                            : "bg-red-500"
-                        }`}
-                      />
-                      <span className="absolute text-[14px]">
-                        {sunkShip ? "🔥" : "💥"}
-                      </span>
-                      {sunkShip && (
-                        <div className="absolute inset-0 bg-red-500/20 animate-ping rounded-full" />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 3. HIỆU ỨNG TRƯỢT */}
+                  {/* Bắn hụt (Miss) */}
                   {status === "miss" && (
-                    <div className="w-1.5 h-1.5 bg-white/40 rounded-full" />
+                    <div className="w-1.5 h-1.5 bg-cyan-100/40 rounded-full shadow-[0_0_5px_white]" />
                   )}
 
-                  {/* 4. HIGHLIGHT PHÁT BẮN CUỐI CÙNG */}
+                  {/* Tâm ngắm (Crosshair) */}
                   {isLastShot && (
-                    <div className="absolute inset-0 border-2 border-yellow-400 shadow-[0_0_12px_#facc15] z-40 pointer-events-none animate-pulse" />
+                    <div className="absolute inset-0 border-2 border-yellow-400 animate-pulse z-30 shadow-[0_0_15px_rgba(250,204,21,0.6)]">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-yellow-400/20" />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-yellow-400/20" />
+                    </div>
                   )}
                 </div>
               );

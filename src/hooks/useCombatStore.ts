@@ -1,6 +1,15 @@
 import { create } from "zustand";
+import { useUser } from "@/context/UserContext"; // Đảm bảo bạn có import này để check userId
 
 export type CellStatus = "empty" | "hit" | "miss" | "ship" | "invalid";
+
+export interface Ship {
+  size: number;
+  name: string;
+  x: number;
+  y: number;
+  isHorizontal: boolean;
+}
 
 const SHIPS_DATA = [
   { size: 5, name: "Carrier" },
@@ -9,12 +18,7 @@ const SHIPS_DATA = [
   { size: 2, name: "Destroy" },
 ];
 
-interface DraggingState {
-  size: number;
-  name: string;
-  x: number;
-  y: number;
-  isHorizontal: boolean;
+interface DraggingState extends Ship {
   isValid: boolean;
 }
 
@@ -25,7 +29,12 @@ interface CombatState {
   draggingShip: DraggingState | null;
   enemyShips: Ship[];
   turn: boolean;
-  winner: "player" | "bot" | null;
+  winner: "player" | "enemy" | null; // Đổi 'bot' thành 'enemy' cho đúng bản chất PVP
+  lastPlayerAttack: { x: number; y: number } | null;
+  lastBotAttack: { x: number; y: number } | null;
+  playerHits: { x: number; y: number; isHit: boolean }[];
+  enemyHits: { x: number; y: number; isHit: boolean }[];
+  sunkShipsData: { name: string, coords: {x: number, y: number}[] }[];
 
   // Actions
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
@@ -37,13 +46,22 @@ interface CombatState {
   rotateShipAt: (x: number, y: number) => boolean;
   resetShips: () => void;
   autoPlaceShips: () => void;
-  setEnemyShips: (ships: Ship[]) => void; // Đã thêm
-  setBotFleet: () => void; // Đã thêm
-  updatePlayerGrid: (x: number, y: number) => "hit" | "miss";
-  isShipSunk: (grid: CellStatus[][], ship: Ship) => boolean;
-  updateEnemyGrid: (x: number, y: number, status: "hit" | "miss") => void;
+  setEnemyShips: (ships: Ship[]) => void;
   setTurn: (turn: boolean) => void;
-  // Helper
+
+  // Logic Multiplayer chính
+  sunkShips: string[];
+  recordMove: (
+    userId: string,
+    x: number,
+    y: number,
+    isHit: boolean,
+    currentUserId: string,
+    sunkShipName?: string
+  ) => void;
+  checkGameOver: () => void;
+
+  // Helpers
   checkValidPlacement: (
     x: number,
     y: number,
@@ -52,9 +70,7 @@ interface CombatState {
     existingShips: Ship[]
   ) => boolean;
   generateRandomFleet: () => Ship[];
-  lastPlayerAttack: { x: number; y: number } | null;
-  lastBotAttack: { x: number; y: number } | null;
-  checkGameOver: (type: "player" | "bot") => void;
+  isShipSunk: (grid: CellStatus[][], ship: Ship) => boolean;
 }
 
 const createEmptyGrid = () =>
@@ -72,22 +88,21 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastPlayerAttack: null,
   lastBotAttack: null,
   winner: null,
+  playerHits: [],
+  enemyHits: [],
+  sunkShips: [],
+  sunkShipsData: [],
 
   refreshGrid: (ships, ghost) => {
     const newGrid = createEmptyGrid();
-
-    // Vẽ tàu đã đặt
     ships.forEach((ship) => {
       for (let i = 0; i < ship.size; i++) {
         const curY = ship.isHorizontal ? ship.y : ship.y + i;
         const curX = ship.isHorizontal ? ship.x + i : ship.x;
-        if (curY >= 0 && curY < 10 && curX >= 0 && curX < 10) {
+        if (curY >= 0 && curY < 10 && curX >= 0 && curX < 10)
           newGrid[curY][curX] = "ship";
-        }
       }
     });
-
-    // Vẽ tàu đang kéo (Ghost)
     if (ghost && ghost.x !== -1 && ghost.y !== -1) {
       for (let i = 0; i < ghost.size; i++) {
         const curY = ghost.isHorizontal ? ghost.y : ghost.y + i;
@@ -102,6 +117,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return newGrid;
   },
 
+  // ... (Các hàm setDraggingShip, updateDraggingPos, placeShip, pickUpShip giữ nguyên như code của bạn)
   setDraggingShip: (ship) => {
     if (!ship) {
       set({
@@ -117,14 +133,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         y: -1,
         isHorizontal: true,
         isValid: false,
-      },
+      } as DraggingState,
     });
   },
 
   updateDraggingPos: (x, y) => {
     const dragging = get().draggingShip;
     if (!dragging || (dragging.x === x && dragging.y === y)) return;
-
     const isValid = get().checkValidPlacement(
       x,
       y,
@@ -133,7 +148,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       get().placedShips
     );
     const newGhost = { ...dragging, x, y, isValid };
-
     set({
       draggingShip: newGhost,
       playerGrid: get().refreshGrid(get().placedShips, newGhost),
@@ -162,7 +176,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const ship = get().placedShips.find((s) => s.size === size);
     if (!ship) return;
     const remaining = get().placedShips.filter((s) => s.size !== size);
-    const ghost = { ...ship, isValid: true };
+    const ghost = { ...ship, isValid: true } as DraggingState;
     set({
       placedShips: remaining,
       draggingShip: ghost,
@@ -174,8 +188,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const dragging = get().draggingShip;
     if (!dragging) return;
     const newIsHorizontal = !dragging.isHorizontal;
-
-    // Check valid ngay khi xoay
     const isValid = get().checkValidPlacement(
       dragging.x,
       dragging.y,
@@ -183,11 +195,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       newIsHorizontal,
       get().placedShips
     );
-    const newGhost = { ...dragging, isHorizontal: newIsHorizontal, isValid };
-
     set({
-      draggingShip: newGhost,
-      playerGrid: get().refreshGrid(get().placedShips, newGhost),
+      draggingShip: { ...dragging, isHorizontal: newIsHorizontal, isValid },
+      playerGrid: get().refreshGrid(get().placedShips, {
+        ...dragging,
+        isHorizontal: newIsHorizontal,
+        isValid,
+      }),
     });
   },
 
@@ -201,7 +215,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       }
       return false;
     });
-
     if (shipIdx === -1) return false;
     const ship = ships[shipIdx];
     const otherShips = ships.filter((_, idx) => idx !== shipIdx);
@@ -212,7 +225,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       !ship.isHorizontal,
       otherShips
     );
-
     if (canRotate) {
       ships[shipIdx] = { ...ship, isHorizontal: !ship.isHorizontal };
       set({ placedShips: ships, playerGrid: get().refreshGrid(ships) });
@@ -226,7 +238,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       const cx = isH ? x + i : x;
       const cy = isH ? y : y + i;
       if (cx < 0 || cx >= 10 || cy < 0 || cy >= 10) return false;
-
       const overlap = existingShips.some((s) => {
         for (let j = 0; j < s.size; j++) {
           const sx = s.isHorizontal ? s.x + j : s.x;
@@ -268,10 +279,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     });
   },
 
-  setBotFleet: () => {
-    const fleet = get().generateRandomFleet();
-    set({ enemyShips: fleet, enemyGrid: createEmptyGrid() });
-  },
+  setEnemyShips: (ships) => set({ enemyShips: ships }),
+
+  setTurn: (turn) => set({ turn }),
 
   resetShips: () => {
     set({
@@ -280,33 +290,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       enemyGrid: createEmptyGrid(),
       lastPlayerAttack: null,
       lastBotAttack: null,
-      winner: null, // Reset trạng thái thắng
+      winner: null,
+      playerHits: [],
+      enemyHits: [],
+      sunkShips: [],
+      sunkShipsData: [], // Reset dữ liệu tàu đắm
     });
-  },
-
-  setEnemyShips: (ships) => set({ enemyShips: ships }),
-
-  updatePlayerGrid: (x, y) => {
-    if (get().winner) return "miss";
-    const ships = get().placedShips;
-    const isHit = ships.some((s) => {
-      for (let i = 0; i < s.size; i++) {
-        const sx = s.isHorizontal ? s.x + i : s.x;
-        const sy = s.isHorizontal ? s.y : s.y + i;
-        if (sx === x && sy === y) return true;
-      }
-      return false;
-    });
-
-    const status = isHit ? "hit" : "miss";
-    set((state) => ({
-      playerGrid: state.playerGrid.map((row, rIdx) =>
-        rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
-      ),
-      lastBotAttack: { x, y }, // QUAN TRỌNG: Lưu vết máy bắn
-    }));
-    get().checkGameOver("player"); // Kiểm tra xem Bot có thắng khôn
-    return status;
   },
 
   isShipSunk: (grid, ship) => {
@@ -318,32 +307,79 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return true;
   },
 
-  updateEnemyGrid: (x, y, status) => {
-    if (get().winner) return;
+  recordMove: (userId, x, y, isHit, currentUserId, sunkShipName) => {
+    const status = isHit ? "hit" : "miss";
+    const isOpponentMove = userId !== currentUserId;
+  
     set((state) => {
-      const newGrid = state.enemyGrid.map((row, rIdx) =>
+      // 1. Cập nhật Grid
+      const targetGridKey = isOpponentMove ? "playerGrid" : "enemyGrid";
+      const newGrid = state[targetGridKey].map((row, rIdx) =>
         rIdx === y ? row.map((cell, cIdx) => (cIdx === x ? status : cell)) : row
       );
+  
+      // 2. Xử lý danh sách tên tàu chìm (để gạch tên trong danh sách)
+      let newSunkShips = state.sunkShips;
+      if (!isOpponentMove && sunkShipName) {
+        if (!newSunkShips.includes(sunkShipName)) {
+          newSunkShips = [...newSunkShips, sunkShipName];
+        }
+      }
+
+      // 3. Xử lý tọa độ tàu đắm (Để UI hiện hiệu ứng lửa 🔥)
+      let newSunkShipsData = [...state.sunkShipsData];
+      
+      // Nếu mình vừa bắn chìm tàu địch, hoặc đối thủ bắn chìm tàu mình
+      if (sunkShipName) {
+        // Nếu ô vừa bắn trúng là phát súng kết liễu, ta lưu nó vào data
+        // Trong thực tế, vì ta không biết các ô khác của tàu địch, 
+        // ta sẽ coi mọi ô 'hit' kề nhau là một phần của hiệu ứng
+        const existingSunk = newSunkShipsData.find(d => d.name === sunkShipName);
+        if (!existingSunk) {
+            newSunkShipsData.push({ 
+                name: sunkShipName, 
+                coords: [{ x, y }] // Tạm thời lưu ô kết liễu để UI highlight
+            });
+        }
+      }
+  
+      // 4. Logic giữ lượt
+      let nextTurn = state.turn; 
+      if (!isHit) {
+        nextTurn = isOpponentMove; 
+      }
+  
       return {
-        enemyGrid: newGrid,
-        lastPlayerAttack: { x, y }, // QUAN TRỌNG: Lưu vết mình bắn
+        [targetGridKey]: newGrid,
+        sunkShips: newSunkShips,
+        sunkShipsData: newSunkShipsData,
+        turn: nextTurn,
+        ...(isOpponentMove 
+            ? { lastBotAttack: { x, y } } 
+            : { lastPlayerAttack: { x, y } }
+        ),
       };
     });
-    get().checkGameOver("bot"); // Kiểm tra xem mình có thắng không
+  
+    get().checkGameOver();
   },
 
-  // Hàm kiểm tra xem một bên đã mất hết tàu chưa
-  checkGameOver: (target) => {
-    const ships = target === "bot" ? get().enemyShips : get().placedShips;
-    const grid = target === "bot" ? get().enemyGrid : get().playerGrid;
+  checkGameOver: () => {
+    const { sunkShips, placedShips, playerGrid } = get();
 
-    // Nếu tất cả các ô của tất cả các tàu đều là 'hit' -> Thua
-    const allSunk = ships.every((ship) => get().isShipSunk(grid, ship));
+    // Mình thắng: Dựa trên số lượng tàu chìm mà DB xác nhận
+    if (sunkShips.length === SHIPS_DATA.length) {
+      set({ winner: "player" });
+      return;
+    }
 
-    if (allSunk) {
-      set({ winner: target === "bot" ? "player" : "bot" });
+    // Địch thắng: Kiểm tra thực tế trên lưới nhà
+    const allPlayerSunk =
+      placedShips.length > 0 &&
+      placedShips.every((s) => get().isShipSunk(playerGrid, s));
+      
+    if (allPlayerSunk) {
+      set({ winner: "enemy" });
     }
   },
-
-  setTurn: (turn) => set({ turn }),
 }));

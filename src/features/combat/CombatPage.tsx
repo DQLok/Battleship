@@ -1,82 +1,156 @@
-// src/features/combat/pages/CombatPage.tsx
-import React, { useEffect, useMemo, useState } from "react"; // Thêm useState để quản lý phase
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Button, Header, Modal, Page, Text, useLocation } from "zmp-ui";
+import { showToast } from "zmp-sdk";
+import { supabase } from "@/api/supabaseClient";
+import { useUser } from "@/context/UserContext";
+import { useCombatStore } from "@/hooks/useCombatStore";
+import { useSupabase } from "@/hooks/useSupabase";
+
+// Components
 import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
-import CombatControls from "./components/CombatControls";
 import ShipStatusHeader from "./components/ShipStatusHeader";
-import { useCombatStore } from "@/hooks/useCombatStore";
 import BottomNav from "@/components/BottomNav";
-import { Box, Button, Header, Modal, Page, Text, useLocation } from "zmp-ui";
-import "@/css/children/CombatPage.scss";
 import { ShipDock } from "./components/ShipDock";
-import { useSupabase } from "@/hooks/useSupabase";
-import { useUser } from "@/context/UserContext";
-import { showToast } from "zmp-sdk";
+
+import "@/css/children/CombatPage.scss";
 
 const CombatPage: React.FC = () => {
-  // Lấy thêm các hàm bổ trợ từ store để setup trận đấu
+  const { user } = useUser();
+  const { state } = useLocation();
+  const { saveShipLayout } = useSupabase();
+
   const {
     placedShips,
     draggingShip,
-    toggleDraggingRotation,
-    setBotFleet, // Sử dụng hàm này thay vì setEnemyShips thủ công
-    setTurn,
     enemyShips,
     winner,
-    resetShips,
+    setEnemyShips,
+    setTurn,
+    turn,
+    autoPlaceShips,
+    recordMove,
   } = useCombatStore();
-  const { saveShipLayout } = useSupabase();
 
   const [inBattle, setInBattle] = useState(false);
-  const { state } = useLocation();
-  const gameId = state?.gameId || "ROOM_ID_HERE";
-  const { user } = useUser();
+  const [isReadySent, setIsReadySent] = useState(false);
 
-  // Kiểm tra đủ 4 loại tàu (2, 3, 4, 5)
-  const isReady = useMemo(() => placedShips.length === 4, [placedShips]);
+  const gameId = state?.gameId || "ROOM_TEST_01";
+  const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
 
-  useEffect(() => {}, []);
+  // --- 1. REALTIME ENGINE ---
+  useEffect(() => {
+    if (!gameId || !user) return;
 
-  const handleStartBattle = async () => {
-    if (!isReady) {
-      showToast({ message: "Vui lòng triển khai đủ hạm đội (4 tàu)!" });
-      return;
-    }
-    if (!user) {
-      showToast({ message: "Vui lòng đăng nhập!" });
-      return;
-    }
+    const combatChannel = supabase
+      .channel(`game_${gameId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "moves",
+          filter: `game_id=eq.${gameId}`,
+        },
+        async (payload) => {
+          const move = payload.new;
+          const isMine = move.user_id === user.id;
 
-    // 1. Gọi hàm từ hook để lưu dữ liệu lên Supabase
-    const { error } = await saveShipLayout(gameId, user.id, placedShips);
+          recordMove(
+            move.user_id,
+            move.x,
+            move.y,
+            move.is_hit,
+            user.id,
+            move.sunk_ship_name
+          );
 
-    if (error) {
-      console.error("Lỗi đồng bộ hạm đội:", error);
-      showToast({ message: "Lỗi kết nối vệ tinh (Database error)!" });
-      return;
-    }
+          if (move.is_hit) {
+            showToast({
+              message: isMine
+                ? "🎯 TRÚNG RỒI! Bắn tiếp đi!"
+                : "⚠️ Địch bắn trúng! Chúng đang bắn tiếp...",
+            });
+          } else {
+            showToast({
+              message: isMine
+                ? "🌊 Hụt rồi! Đổi lượt."
+                : "🛡️ Đối thủ bắn hụt! Đến lượt bạn.",
+            });
+          }
+        }
+      )
+      .subscribe();
 
-    // 2. Nếu lưu thành công, bắt đầu logic chiến đấu
-    setBotFleet();
-    setInBattle(true);
-    setTurn(true);
+    return () => {
+      console.log("alooooo");
+      supabase.removeChannel(combatChannel);
+    };
+  }, [gameId, user?.id, isReadySent]);
 
-    showToast({
-      message: "Chiến dịch bắt đầu! Dữ liệu đã được đồng bộ.",
+  // --- 2. LOGIC BẮN (MULTI PLAYER) ---
+  const handleAttackEnemy = async (x: number, y: number) => {
+    if (!inBattle || !turn || !user) return;
+
+    // Check hit cục bộ dựa trên enemyShips đã sync
+    // const isHit = enemyShips.some((s) => {
+    //   for (let i = 0; i < s.size; i++) {
+    //     const sx = s.isHorizontal ? s.x + i : s.x;
+    //     const sy = s.isHorizontal ? s.y : s.y + i;
+    //     if (sx === x && sy === y) return true;
+    //   }
+    //   return false;
+    // });
+
+    const { error } = await supabase.from("moves").insert({
+      game_id: gameId,
+      user_id: user.id,
+      x,
+      y,
+      // Không cần tính is_hit ở đây, DB Trigger sẽ tự override giá trị này
     });
+
+    if (error) console.error("Lỗi pháo kích:", error);
+  };
+
+  // --- 3. KHỞI CHẠY CHIẾN DỊCH ---
+  const handleStartBattle = async () => {
+    if (!isReadyToStart || !user) return;
+
+    const { error } = await saveShipLayout(gameId, user.id, placedShips);
+    if (error) {
+      showToast({ message: "Lỗi kết nối vệ tinh!" });
+      return;
+    }
+
+    setIsReadySent(true);
+
+    // Kiểm tra xem đối thủ đã "ở đó" chưa
+    const { data: opponent } = await supabase
+      .from("game_boards")
+      .select("ships_data")
+      .eq("game_id", gameId)
+      .neq("user_id", user.id)
+      .maybeSingle();
+
+    if (opponent) {
+      setEnemyShips(opponent.ships_data);
+      setInBattle(true);
+      setTurn(true);
+      showToast({ message: "CHIẾN DỊCH BẮT ĐẦU!" });
+    } else {
+      showToast({ message: "Đang đợi đối thủ dàn trận..." });
+    }
   };
 
   return (
     <Page
       className={`combat-page ${draggingShip ? "dragging-active" : ""}`}
-      style={{
-        overflow: draggingShip ? "hidden" : "auto",
-        backgroundColor: "#061421",
-      }}
+      style={{ backgroundColor: "#061421" }}
       hideScrollbar
     >
       <Header
-        title={inBattle ? "GIAO TRANH" : "THIẾT LẬP HẠM ĐỘI"}
+        title={inBattle ? "GIAO TRANH THỰC TẾ" : "THIẾT LẬP HẠM ĐỘI"}
         showBackIcon={false}
         textColor="#22d3ee"
         backgroundColor="#061421"
@@ -85,17 +159,26 @@ const CombatPage: React.FC = () => {
       <Box className="combat-main-content pb-32">
         <CombatHeader />
 
-        {/* Lưới kẻ thù: Hiện rõ khi vào trận (Battle Mode) */}
+        {/* LƯỚI RADAR ĐỊCH */}
         <Box
-          className={`combat-section ${inBattle ? "" : "pointer-events-none"}`}
+          className={`combat-section ${
+            inBattle && turn ? "" : "pointer-events-none opacity-70"
+          }`}
         >
-          <GameGrid type="enemy" />
+          <Text
+            size="xxSmall"
+            className={`ml-4 mb-2 tracking-[0.3em] font-bold ${
+              turn ? "text-cyan-400 animate-pulse" : "text-gray-600"
+            }`}
+          >
+            {turn ? ">> LƯỢT TẤN CÔNG <<" : ">> ĐỢI CHỈ THỊ ĐỊCH <<"}
+          </Text>
+          <GameGrid type="enemy" onCellClick={handleAttackEnemy} />
         </Box>
 
-        {/* Ẩn Dock chọn tàu khi đã vào trận */}
         {!inBattle && (
           <Box
-            className={`combat-section mt-4 transition-transform ${
+            className={`combat-section mt-4 ${
               draggingShip ? "scale-95 opacity-30" : ""
             }`}
           >
@@ -103,95 +186,65 @@ const CombatPage: React.FC = () => {
           </Box>
         )}
 
-        {/* Khu vực Lưới của mình */}
+        {/* LƯỚI HẠM ĐỘI NHÀ */}
         <Box className={`combat-section ${inBattle ? "mt-4" : "mt-6"}`}>
           <ShipStatusHeader />
           <div className="mt-4 relative flex justify-center">
             <GameGrid type="home" />
-
-            {draggingShip && (
-              <div className="absolute -top-12 left-0 right-0 flex justify-center z-50 animate-pulse">
-                <div className="bg-cyan-500 text-[#061421] text-[9px] font-black px-4 py-1.5 rounded-full shadow-[0_0_15px_#22d3ee] uppercase">
-                  Di chuyển để triển khai
-                </div>
-              </div>
-            )}
           </div>
         </Box>
 
-        {/* Nút xoay chỉ hiện khi đang setup */}
-        {!inBattle && draggingShip && (
-          <Box className="fixed bottom-24 left-0 right-0 flex justify-center z-50 px-6">
-            <Button
-              fullWidth
-              className="bg-cyan-900/40 border border-cyan-400 text-cyan-400 font-bold h-12 backdrop-blur-md"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleDraggingRotation();
-              }}
-            >
-              XOAY HƯỚNG TÀU (ROTATE)
-            </Button>
-          </Box>
-        )}
-
-        {/* Điều khiển & Nút Start/Surrender */}
-        <Box
-          className={`px-4 mt-10 transition-opacity ${
-            draggingShip ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          {!inBattle && <CombatControls />}
-
-          <div className="mt-8">
-            {!inBattle ? (
-              isReady ? (
-                <Button
-                  fullWidth
-                  className="btn-ready-start h-14 bg-cyan-500 text-[#061421] font-black italic shadow-[0_0_20px_rgba(34,211,238,0.5)] active:scale-95 transition-transform"
-                  onClick={handleStartBattle}
-                >
-                  KHỞI CHẠY CHIẾN DỊCH
-                </Button>
-              ) : (
-                <div className="text-center p-4 border-2 border-dashed border-cyan-900/50 bg-[#0a1a29] rounded-lg">
-                  <Text className="text-cyan-700 text-[10px] uppercase font-bold tracking-widest leading-loose">
-                    Chỉ huy hãy triển khai <br />
-                    đủ quân số ({placedShips.length}/4)
-                  </Text>
-                </div>
-              )
-            ) : (
+        {/* NÚT ĐIỀU KHIỂN */}
+        <Box className="px-4 mt-10">
+          {!inBattle ? (
+            <div className="flex flex-col gap-3">
               <Button
                 fullWidth
                 variant="secondary"
-                className="mt-4 border-red-900/20 text-red-900 opacity-40 hover:opacity-100 text-[9px] font-bold tracking-widest"
-                onClick={() => window.location.reload()} // Tạm thời reload để reset
+                className="border-cyan-500 text-cyan-500"
+                onClick={autoPlaceShips}
               >
-                RÚT QUÂN (SURRENDER)
+                DÀN TRẬN NGẪU NHIÊN
               </Button>
-            )}
-          </div>
+
+              <Button
+                fullWidth
+                disabled={!isReadyToStart || isReadySent}
+                className={`h-14 font-black ${
+                  isReadySent
+                    ? "bg-gray-700"
+                    : "bg-cyan-500 shadow-[0_0_20px_#22d3ee]"
+                }`}
+                onClick={handleStartBattle}
+              >
+                {isReadySent ? "ĐANG ĐỢI ĐỐI THỦ..." : "XÁC NHẬN TRIỂN KHAI"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              fullWidth
+              variant="secondary"
+              className="mt-4 text-red-900/50 text-[9px] border-none"
+              onClick={() => window.location.reload()}
+            >
+              RÚT QUÂN (SURRENDER)
+            </Button>
+          )}
         </Box>
 
-        {/* --- DEBUG PANEL: HIỆN LƯỚI TÀU NGẦM CỦA BOT --- */}
-        <Box className="mt-20 p-4 border-t border-dashed border-red-500/30 bg-red-950/10">
-          <Text className="text-red-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 text-center">
-            --- DEBUG MODE: BOT ACTUAL POSITIONS ---
+        {/* DEBUG PANEL */}
+        <Box className="mt-20 p-4 border-t border-red-500/20 bg-red-950/5">
+          <Text className="text-red-500/40 text-[9px] font-black text-center mb-2">
+            DEBUG: VỆ TINH SOI ĐỊCH
           </Text>
-
-          <div className="flex justify-center opacity-60 scale-90 origin-top">
-            {/* Reuse GameGrid với type="enemy" nhưng chúng ta sẽ can thiệp hiển thị */}
-            <div className="relative pointer-events-none">
+          <div className="flex justify-center opacity-20 scale-50">
+            <div className="relative">
               <GameGrid type="enemy" />
-
-              {/* Overlay các vị trí tàu thực tế của Bot lên trên lưới Radar */}
               <div className="absolute inset-0 grid grid-cols-10 gap-0.5 p-1 ml-7 mt-8">
-                {/* Logic này giúp bạn nhìn thấy tàu Bot đang nằm ở đâu thực sự */}
                 {[...Array(100)].map((_, i) => {
                   const x = i % 10;
                   const y = Math.floor(i / 10);
-                  const isBotShip = enemyShips.some((s) => {
+                  const isShip = enemyShips.some((s) => {
                     for (let j = 0; j < s.size; j++) {
                       const sx = s.isHorizontal ? s.x + j : s.x;
                       const sy = s.isHorizontal ? s.y : s.y + j;
@@ -199,14 +252,13 @@ const CombatPage: React.FC = () => {
                     }
                     return false;
                   });
-
                   return (
                     <div
                       key={i}
                       className="w-7 h-7 flex items-center justify-center"
                     >
-                      {isBotShip && (
-                        <div className="w-3 h-3 bg-red-500/50 rounded-full shadow-[0_0_8px_red]" />
+                      {isShip && (
+                        <div className="w-3 h-3 bg-red-500 rounded-full" />
                       )}
                     </div>
                   );
@@ -214,47 +266,29 @@ const CombatPage: React.FC = () => {
               </div>
             </div>
           </div>
-
-          <Box className="mt-4 bg-black/40 p-2 rounded text-[9px] text-gray-400 font-mono">
-            <p>Bot Ships Data:</p>
-            {enemyShips.map((s, idx) => (
-              <div key={idx}>
-                {s.name}: [{s.x},{s.y}] - {s.isHorizontal ? "H" : "V"} (Size:{" "}
-                {s.size})
-              </div>
-            ))}
-          </Box>
         </Box>
       </Box>
 
-      {/* MODAL THÔNG BÁO KẾT THÚC */}
       <Modal
         visible={!!winner}
-        title={
-          winner === "player" ? "CHIẾN THẮNG VẺ VANG!" : "THẤT BẠI TRẬN NÀY"
-        }
-        onClose={() => {}}
-        verticalActions
+        title={winner === "player" ? "VICTORY" : "DEFEAT"}
       >
-        <Box className="p-4 text-center bg[--var(--bg)] border-t border-dashed border-cyan-900/50 bg-[#0a1a29]">
+        <Box className="p-6 text-center bg-[#0a1a29]">
           <Text
             className={
-              winner === "player" ? "text-yellow-500 font-bold" : "text-red-500"
+              winner === "player" ? "text-cyan-400 font-black" : "text-red-500"
             }
           >
             {winner === "player"
-              ? "Chúc mừng Chỉ huy! Bạn đã quét sạch hạm đội địch."
-              : "Hạm đội của chúng ta đã bị tiêu diệt hoàn toàn."}
+              ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH!"
+              : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI."}
           </Text>
-
           <Button
             fullWidth
-            className="mt-6 bg-cyan-500"
-            onClick={() => {
-              window.location.reload(); // Hoặc gọi resetShips() và setInBattle(false)
-            }}
+            className="mt-8 bg-cyan-500"
+            onClick={() => window.location.reload()}
           >
-            CHƠI VÁN MỚI
+            KẾT THÚC
           </Button>
         </Box>
       </Modal>
