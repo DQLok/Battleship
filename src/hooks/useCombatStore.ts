@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useUser } from "@/context/UserContext"; // Đảm bảo bạn có import này để check userId
 
 export type CellStatus = "empty" | "hit" | "miss" | "ship" | "invalid";
 
