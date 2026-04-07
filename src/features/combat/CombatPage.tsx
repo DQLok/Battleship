@@ -40,79 +40,9 @@ const CombatPage: React.FC = () => {
   const opponentId = state?.opponentId;
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
 
-  // --- 1. REALTIME ENGINE (MOVES) ---
-  // useEffect(() => {
-  //   if (!gameId || !user || winner) return;
-
-  //   const combatChannel = supabase
-  //     .channel(`game_${gameId}`)
-  //     .on(
-  //       "postgres_changes",
-  //       {
-  //         event: "INSERT",
-  //         schema: "public",
-  //         table: "moves",
-  //         filter: `game_id=eq.${gameId}`,
-  //       },
-  //       (payload) => {
-  //         const move = payload.new;
-  //         console.log("🎯 gooooo");
-  //         recordMove(
-  //           move.user_id,
-  //           move.x,
-  //           move.y,
-  //           move.is_hit,
-  //           user.id,
-  //           move.sunk_ship_name
-  //         );
-
-  //         const isMine = move.user_id === user.id;
-
-  //         showToast({
-  //           message: move.is_hit
-  //             ? isMine
-  //               ? "🎯 TRÚNG RỒI!"
-  //               : "⚠️ ĐỊCH BẮN TRÚNG!"
-  //             : isMine
-  //             ? "🌊 HỤT RỒI!"
-  //             : "🛡️ ĐỐI THỦ BẮN HỤT!",
-  //         });
-  //       }
-  //     )
-
-  //     // --- LẮNG NGHE ĐỐI THỦ SẴN SÀNG (Để tự động Start Battle) ---
-
-  //     // .on(
-  //     //   "postgres_changes",
-  //     //   {
-  //     //     event: "UPDATE",
-  //     //     schema: "public",
-  //     //     table: "game_boards",
-  //     //     filter: `game_id=eq.${gameId}`,
-  //     //   },
-  //     //   (payload) => {
-  //     //     console.log("🎯 ĐỐI THỦ SẴN SÀNG!");
-  //     //     if (payload.new.user_id !== user.id && payload.new.is_ready) {
-  //     //       setEnemyShips(payload.new.ships_data);
-  //     //       if (isReadySent) {
-  //     //         setInBattle(true);
-  //     //         setTurn(true);
-  //     //         showToast({ message: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
-  //     //       }
-  //     //     }
-  //     //   }
-  //     // )
-
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(combatChannel);
-  //   };
-  // }, [gameId, user?.id, isReadySent, winner]);
-
   useEffect(() => {
     if (!gameId || !user) return;
-  
+
     // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
     const moveChannel = supabase
       .channel(`moves_${gameId}`) // Tên channel khác đi một chút
@@ -125,7 +55,6 @@ const CombatPage: React.FC = () => {
           filter: `game_id=eq.${gameId}`,
         },
         (payload) => {
-          console.log("🎯 Move Event:", payload.new);
           recordMove(
             payload.new.user_id,
             payload.new.x,
@@ -137,7 +66,7 @@ const CombatPage: React.FC = () => {
         }
       )
       .subscribe();
-  
+
     // --- CHANNEL 2: CHUYÊN XỬ LÝ TRẠNG THÁI SẴN SÀNG (BOARDS) ---
     const boardChannel = supabase
       .channel(`boards_${gameId}`) // Tên channel khác
@@ -164,9 +93,8 @@ const CombatPage: React.FC = () => {
         }
       )
       .subscribe();
-  
+
     return () => {
-      console.log("🔌 Cleaning up channels...");
       supabase.removeChannel(moveChannel);
       supabase.removeChannel(boardChannel);
     };
@@ -175,7 +103,6 @@ const CombatPage: React.FC = () => {
   // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
   //Thêm useEffect này bên dưới cái Realtime của bạn
   useEffect(() => {
-    console.log("🎉 Game Over! Dự dẹp dữ liệu trán đấu...");
     const handleCleanUp = async () => {
       if (winner && gameId && !isFinishing) {
         // Winner ID: Nếu mình thắng thì là user.id, nếu địch thắng thì là opponentId
@@ -196,7 +123,6 @@ const CombatPage: React.FC = () => {
   // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
     if (!inBattle || !turn || !user || isFinishing) return;
-    console.log("🎯 MẫU BẮN TRÚNG RỒI!");
 
     const { error } = await supabase.from("moves").insert({
       game_id: gameId,
@@ -238,7 +164,6 @@ const CombatPage: React.FC = () => {
   };
 
   const handleEndSession = () => {
-    console.log("🏆 Game Over! Dự dẹp dữ liệu trán đấu...");
     resetShips(); // Clear zustand
     window.location.reload(); // Hoặc navigate về Home
   };

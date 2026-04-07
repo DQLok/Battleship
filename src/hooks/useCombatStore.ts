@@ -331,43 +331,59 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       }
 
       let newSunkShipsData = [...state.sunkShipsData];
+      // Trong recordMove, phần xử lý sunkShipName
       if (sunkShipName && !isOpponentMove) {
         const connectedHitCoords: { x: number; y: number }[] = [];
-        const visited = new Set<string>();
-        const findConnectedHits = (cx: number, cy: number) => {
-          const key = `${cx},${cy}`;
-          if (
-            cx < 0 ||
-            cx >= 10 ||
-            cy < 0 ||
-            cy >= 10 ||
-            visited.has(key) ||
-            newGrid[cy][cx] !== "hit"
-          )
-            return;
 
-          visited.add(key);
-          connectedHitCoords.push({ x: cx, y: cy });
-          findConnectedHits(cx + 1, cy);
-          findConnectedHits(cx - 1, cy);
-          findConnectedHits(cx, cy + 1);
-          findConnectedHits(cx, cy - 1);
-        };
+        // 1. Thêm ô hiện tại
+        connectedHitCoords.push({ x, y });
 
-        findConnectedHits(x, y);
+        // 2. Kiểm tra 4 hướng nhưng dừng lại khi gặp ô không phải 'hit'
+        // hoặc vượt quá kích thước logic của 1 con tàu (max 5 ô)
+        const directions = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+
+        directions.forEach(([dx, dy]) => {
+          for (let i = 1; i < 5; i++) {
+            // Tàu dài nhất là 5
+            const nx = x + dx * i;
+            const ny = y + dy * i;
+            if (
+              nx >= 0 &&
+              nx < 10 &&
+              ny >= 0 &&
+              ny < 10 &&
+              newGrid[ny][nx] === "hit"
+            ) {
+              connectedHitCoords.push({ x: nx, y: ny });
+            } else {
+              break; // Gặp ô trống hoặc miss thì dừng hướng này ngay
+            }
+          }
+        });
+
+        // 3. Lọc trùng và cập nhật
+        const uniqueCoords = Array.from(
+          new Set(connectedHitCoords.map((c) => `${c.x},${c.y}`))
+        ).map((s) => {
+          const [cx, cy] = s.split(",").map(Number);
+          return { x: cx, y: cy };
+        });
+
         const existingIdx = newSunkShipsData.findIndex(
           (d) => d.name === sunkShipName
         );
         if (existingIdx > -1) {
           newSunkShipsData[existingIdx] = {
             name: sunkShipName,
-            coords: connectedHitCoords,
+            coords: uniqueCoords,
           };
         } else {
-          newSunkShipsData.push({
-            name: sunkShipName,
-            coords: connectedHitCoords,
-          });
+          newSunkShipsData.push({ name: sunkShipName, coords: uniqueCoords });
         }
       }
 

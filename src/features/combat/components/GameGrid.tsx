@@ -139,10 +139,12 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
 
               // XÁC ĐỊNH Ô THUỘC TÀU ĐÃ ĐẮM
               if (type === "enemy") {
+                // Tìm xem ô (x,y) này có nằm trong danh sách tọa độ của CHÍNH xác tàu đã đắm không
                 isPartOfSunkShip = sunkShipsData.some((ship) =>
                   ship.coords.some((c) => c.x === x && c.y === y)
                 );
               } else {
+                // Lưới nhà: Dựa vào danh sách tàu mình đã đặt (Chính xác tuyệt đối)
                 const myShip = placedShips.find((s) => {
                   for (let i = 0; i < s.size; i++) {
                     const cx = s.isHorizontal ? s.x + i : s.x;
@@ -151,14 +153,19 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
                   }
                   return false;
                 });
+
                 if (myShip) {
-                  let hitCount = 0;
+                  // Kiểm tra xem TOÀN BỘ các ô của con tàu này đã bị 'hit' chưa
+                  let isAllHit = true;
                   for (let i = 0; i < myShip.size; i++) {
                     const cx = myShip.isHorizontal ? myShip.x + i : myShip.x;
                     const cy = myShip.isHorizontal ? myShip.y : myShip.y + i;
-                    if (displayGrid[cy][cx] === "hit") hitCount++;
+                    if (displayGrid[cy][cx] !== "hit") {
+                      isAllHit = false;
+                      break;
+                    }
                   }
-                  if (hitCount === myShip.size) isPartOfSunkShip = true;
+                  isPartOfSunkShip = isAllHit;
                 }
               }
 
