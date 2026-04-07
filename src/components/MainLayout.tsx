@@ -5,8 +5,7 @@ import BottomNav from "./BottomNav"; // Đường dẫn đến file BottomNav c�
 const MainLayout = () => {
   return (
     <div className="flex flex-col h-screen">
-      <div className="flex-1 overflow-y-auto pb-16"> 
-        {/* pb-16 để không bị BottomNav đè lên nội dung cuối trang */}
+      <div className="flex-1 overflow-y-auto">
         <Outlet /> 
       </div>
       <BottomNav />
