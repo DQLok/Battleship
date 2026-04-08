@@ -1,22 +1,11 @@
-import React, { useEffect, useState } from "react";
-import {
-  Page,
-  Tabs,
-  Box,
-  Button,
-  Avatar,
-  Text,
-  Icon,
-  Header,
-  SnackbarProvider,
-  useSnackbar,
-} from "zmp-ui";
+import { useEffect, useState } from "react";
+import { Page, Tabs, Box, Button, Icon, Header, useSnackbar } from "zmp-ui";
+import "@/css/children/LobbyPage.scss";
 import { useSupabase } from "@/hooks/useSupabase";
-import { getUserInfo, showToast } from "zmp-sdk";
+import { showToast } from "zmp-sdk";
 import { useNavigate } from "react-router-dom";
 import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
-import { getAppUserId } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
 
 export const LobbyPage = () => {
@@ -99,14 +88,15 @@ export const LobbyPage = () => {
   );
 
   return (
-    <Page className="bg-tactical-dark pt-16">
-      <Header title="Lobby" textColor="#22d3ee" backgroundColor="#061421" />
+    <Page className="lobby-page">
+      <Header
+        title="Lobby"
+        textColor="#22d3ee"
+        backgroundColor="#061421"
+        showBackIcon={false}
+      />
       <Tabs id="lobby-tabs">
-        <Tabs.Tab
-          key="all"
-          label="TẤT CẢ PHÒNG"
-          style={{ backgroundColor: "#061421" }}
-        >
+        <Tabs.Tab key="all" label="TẤT CẢ PHÒNG" className="lobby-tabs">
           <Box p={4}>
             {waitingRooms.map((room) => (
               <RoomCard
@@ -119,7 +109,7 @@ export const LobbyPage = () => {
             ))}
           </Box>
         </Tabs.Tab>
-        <Tabs.Tab key="friends" label="PHÒNG BẠN BÈ">
+        <Tabs.Tab key="friends" label="PHÒNG BẠN BÈ" className="lobby-tabs">
           <Box p={4}>
             {friendRooms.map((room) => (
               <RoomCard

@@ -1,120 +1,170 @@
-/* 2. Định nghĩa biến hệ thống (Single Source of Truth) */
 :root {
   --bg: #061421;
   --bg-secondary: #0a1f32;
   --accent: #22d3ee;
   --text-secondary: #5CD6FF;
-  --accent-glow: rgba(34, 211, 238, 0.3);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-/* 3. Layer Base: Áp dụng cho TOÀN BỘ các thẻ cơ bản */
-layer base {
-
-  html,
-  body {
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg) !important;
-    /* Ép nền tối cho toàn bộ trình duyệt */
-    color: #ffffff;
-    /* Chữ mặc định là trắng */
-    font-family: var(--font-mono);
-    -webkit-font-smoothing: antialiased;
-    padding-bottom: env(safe-area-inset-bottom);
-    color: var(--accent);
-    text-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(34, 211, 238, 0.3);
-    /* Fix cho iOS/Zalo */
-  }
-
-  /* QUAN TRỌNG: Nhuộm đen tất cả các lớp bọc ngoài của Zalo UI */
-  .zmp-page,
-  .zaui-page,
-  .zmp-layout,
-  .zaui-layout,
-  .page-container,
-  #app {
-    background-color: var(--bg) !important;
-    min-height: 100vh;
-  }
-
-  /* Fix lỗi text mặc định của Zalo UI thường là màu đen */
-  span,
-  div,
-  p,
-  h1,
-  h2,
-  h3 {
-    @apply text-white/90;
-  }
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* 4. Layer Components: Ghi đè các thành phần UI dùng chung */
-layer components {
+/* app.scss */
 
-  /* Header & Tabs của Zalo */
-  .zmp-tabs,
-  .zaui-tabs {
+// 1. TABS: Nhuộm đen toàn bộ vùng Header Tabs
+/* Cấu trúc lại Tabs để phân biệt Active/Inactive */
+.zmp-tabs,
+.zaui-tabs {
+  background-color: var(--bg) !important;
+
+  /* CHỈ RESET NỀN: Loại bỏ color: white ở đây để không bị đè các trạng thái sau */
+  // &,
+  // div,
+  // span,
+  // a {
+  //   background-color: var(--bg) !important;
+  //   box-shadow: none !important;
+  // }
+
+  /* 1. Nhắm vào thanh điều hướng (Nav) */
+  .zmp-tabs-nav,
+  .zaui-tabs-nav {
     background-color: var(--bg) !important;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.1) !important;
 
-    .zmp-tabs-nav,
-    .zaui-tabs-nav {
+    /* Nhuộm đen các lớp trung gian */
+    &-container,
+    &-wrap,
+    &-scroll,
+    &-list {
       background-color: var(--bg) !important;
-      border-bottom: 1px solid rgba(34, 211, 238, 0.1) !important;
+    }
 
-      &-item-active {
-        color: var(--accent) !important;
+    /* 2. Trạng thái MẶC ĐỊNH của từng Tab (Not Selected) */
+    &-item {
+      background-color: transparent !important;
 
-        .zmp-tabs-nav-item-text {
-          color: var(--accent) !important;
+      /* Sử dụng selector cụ thể để ép màu xám cho tab chưa chọn */
+      .zmp-tabs-nav-item-text,
+      .zaui-tabs-nav-item-text,
+      span,
+      div {
+        color: #64748b !important; /* Màu xám Slate-500 */
+        transition: all 0.3s ease;
+      }
+
+      /* 3. Trạng thái ĐANG CHỌN (Active) */
+      /* Kết hợp cả class cụ thể của Zalo để đảm bảo độ ưu tiên */
+      &[class*="-active"],
+      &.zmp-tabs-nav-item-active,
+      &.zaui-tabs-nav-item-active {
+        background-color: transparent !important;
+
+        .zmp-tabs-nav-item-text,
+        .zaui-tabs-nav-item-text,
+        span,
+        div {
+          color: var(--accent) !important; /* Màu Cyan Neon */
+          text-shadow: 0 0 8px var(--accent-glow);
+          font-weight: bold;
         }
       }
+    }
 
-      .zmp-tabs-nav-ink-bar {
-        background-color: var(--accent) !important;
-      }
+    /* 4. Thanh gạch chân di chuyển (Ink Bar) */
+    .zmp-tabs-nav-ink-bar,
+    .zaui-tabs-nav-ink-bar {
+      background-color: var(--accent) !important;
+      box-shadow: 0 0 10px var(--accent-glow);
+      height: 2px !important;
     }
   }
 
-  /* Bottom Navigation của Zalo */
-  .zmp-bottom-navigation,
-  .zaui-bottom-navigation {
+  /* 5. Nội dung bên dưới Tabs */
+  .zmp-tabs-content,
+  .zaui-tabs-content {
     background-color: var(--bg) !important;
-    border-top: 1px solid rgba(34, 211, 238, 0.1) !important;
-
-    &,
-    div,
-    span,
-    a {
+    
+    .zmp-tabs-tabpane,
+    .zaui-tabs-tabpane {
       background-color: var(--bg) !important;
+      color: white; /* Chữ trong nội dung tab thì để trắng */
+    }
+  }
+}
+
+// 2. BOTTOM NAVIGATION: Xóa sạch vệt trắng dưới cùng
+.zmp-bottom-navigation,
+.zaui-bottom-navigation {
+  background-color: var(--bg) !important;
+  // border-top: 1px solid rgba(34, 211, 238, 0.1) !important;
+
+  // ÉP TẤT CẢ các thẻ con trực tiếp về nền tối
+  &,
+  div,
+  span,
+  a {
+    background-color: var(--bg) !important;
+    box-shadow: none !important;
+  }
+
+  .zmp-bottom-navigation-item,
+  .zaui-bottom-navigation-item {
+    &-label {
+      color: #4b5563 !important;
     }
 
-    .zmp-bottom-navigation-item-active {
+    // Active State
+    &-active,
+    &.zmp-bottom-navigation-item-active,
+    &.zaui-bottom-navigation-item-active {
 
       .zmp-bottom-navigation-item-label,
+      .zaui-bottom-navigation-item-label,
+      .zmp-icon,
+      .zaui-icon,
       svg {
         color: var(--accent) !important;
         fill: var(--accent) !important;
-        filter: drop-shadow(0 0 5px var(--accent-glow));
+        filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.5));
       }
     }
   }
 }
 
-/* 5. Layer Utilities: Các tiện ích bổ sung */
-layer utilities {
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+// 3. LAYOUT & PAGE: Chống lộ nền trắng khi render
+.zmp-page,
+.zaui-page,
+.zmp-layout,
+.zaui-layout,
+.page-container {
+  background-color: var(--bg) !important;
+  background: var(--bg) !important;
+}
 
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+// Layout container của bạn
+.page-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+}
 
-  /* Class tạo hiệu ứng chữ neon nhanh */
-  .text-neon {
-    color: var(--accent);
-    text-shadow: 0 0 8px var(--accent-glow);
-  }
+/* Ẩn thanh cuộn cho Chrome, Safari và Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ẩn thanh cuộn cho IE, Edge và Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
