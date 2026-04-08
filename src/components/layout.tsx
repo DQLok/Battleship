@@ -1,6 +1,11 @@
-import React from "react";
 import { getSystemInfo } from "zmp-sdk";
-import { AnimationRoutes, App, Route, SnackbarProvider, ZMPRouter } from "zmp-ui";
+import {
+  AnimationRoutes,
+  App,
+  Route,
+  SnackbarProvider,
+  ZMPRouter,
+} from "zmp-ui";
 import { AppProps } from "zmp-ui/app";
 import { UserProvider, useUser } from "@/context/UserContext"; // Import cả 2
 
@@ -19,15 +24,17 @@ const AppContent = () => {
   if (loading) {
     // Style này giúp màn hình loading khớp với phong cách Cyberpunk của bạn
     return (
-      <div style={{
-        background: '#061421', 
-        height: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        color: '#22d3ee',
-        fontFamily: 'monospace'
-      }}>
+      <div
+        style={{
+          background: "#061421",
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#22d3ee",
+          fontFamily: "monospace",
+        }}
+      >
         LOADING COMMANDER...
       </div>
     );
@@ -38,7 +45,7 @@ const AppContent = () => {
       <SnackbarProvider>
         <ZMPRouter>
           <AnimationRoutes>
-            <Route element={<MainLayout />}>              
+            <Route element={<MainLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/combat" element={<CombatPage />} />
               <Route path="/match" element={<MatchmakingPage />} />
