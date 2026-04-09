@@ -33,22 +33,26 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         const userData = {
           id: id || userInfo.id,
-          name: id ? `Player_${id}` : userInfo.name,
-          avatar: id ? "" : userInfo.avatar,
+          username: id ? `Player_${id}` : userInfo.name,
+          avatar_url: id ? "" : userInfo.avatar,
         };
 
         // Sync Supabase ngay tại đây
-        await supabase.from("profiles").upsert(
-          {
-            id: userData.id,
-            username: userData.name,
-            avatar_url: userData.avatar,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
+        const { data, error } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: userData.id,
+              username: userData.username,
+              avatar_url: userData.avatar_url,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }
+          )
+          .select()
+          .single();
 
-        setUser(userData);
+        setUser(data);
       } catch (e) {
         console.error(e);
       } finally {

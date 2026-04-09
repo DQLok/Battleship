@@ -12,4 +12,6 @@ export interface Game {
   current_turn: string | null; // Zalo ID của người đến lượt
   winner_id: string | null;
   created_at: string; // ISO Timestamp (Asia/Ho_Chi_Minh)
+  game_mode: "1vs1" | "team";
+  ready_members: string[];
 }

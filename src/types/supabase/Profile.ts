@@ -5,4 +5,6 @@ export interface Profile {
   avatar_url: string | null;
   wins: number;
   updated_at: string; // ISO String từ TIMESTAMPTZ
+  created_at: string;
+  total_games: number;  
 }

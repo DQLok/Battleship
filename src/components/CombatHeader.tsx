@@ -1,56 +1,52 @@
 // src/features/combat/components/CombatHeader.tsx
-import React, { useEffect, useState } from "react";
-import { useCombatStore } from "@/hooks/useCombatStore";
-import { getAppUserId } from "@/utils/user-info";
+import React, { useEffect } from "react";
+import { useUser } from "@/context/UserContext";
+import { Avatar, Box, ImageViewer, Text } from "zmp-ui";
 
 const CombatHeader: React.FC = () => {
-  // Lấy riêng biệt để tránh lỗi render và dễ debug
-  const commanderName = useCombatStore((state) => state.commanderName);
-  const xp = useCombatStore((state) => state.xp);
-  const [myId, setMyId] = useState("");
+  const { user } = useUser();
 
-  useEffect(() => {
-    const initUser = async () => {
-      const id = await getAppUserId();
-      setMyId(id);
-    };
-
-    initUser();
-  }, [commanderName, xp]);
-
-  // Debug: Kiểm tra xem dữ liệu có lấy được từ Store không
-  // console.log("Header Data:", { commanderName, xp });
+  useEffect(() => {});
 
   return (
-    <div className="flex justify-between items-center w-full border-b border-cyan-900/50 pb-2 mb-2 font-mono">
+    <Box className="flex justify-between items-center w-full border-b border-cyan-900/50 pb-2 mb-2 font-mono">
       {/* Bên trái: Avatar & Name */}
-      <div className="flex items-center gap-3">
-        <div className="relative w-8 h-8 md:w-10 md:h-10 border border-cyan-400 p-0.5 rounded-sm shadow-[0_0_10px_rgba(0,242,255,0.2)]">
-          <img
-            src="https://img.icons8.com/officel/80/000000/manager.png"
-            alt="Avatar"
-            className="w-full h-full object-cover bg-cyan-950"
+      <Box className="flex items-center gap-3">
+        <Box className="relative w-8 h-8 md:w-12 md:h-12 border border-cyan-400 p-0.5 rounded-sm shadow-[0_0_15px_rgba(34,211,238,0.3)] bg-cyan-950/50">
+          <Avatar
+            src={
+              user?.avatar_url ||
+              "https://img.icons8.com/officel/80/000000/manager.png"
+            }
+            style={{ width: "100%", height: "100%" }}
           />
-          {/* Góc trang trí giả lập UI công nghệ */}
-          <div className="absolute -top-1 -left-1 w-2 h-2 border-t border-l border-cyan-400"></div>
-        </div>
-        <h1 className="text-cyan-400 font-bold tracking-[0.1em] text-xs md:text-sm uppercase truncate max-w-[120px]">
-          {/* {commanderName || "COMMANDER"} */}
-          {myId || "COMMANDER"}
-        </h1>
-      </div>
+
+          {/* Lớp Overlay quét Radar giả lập (Option) */}
+          <Box className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-cyan-400/5 to-transparent animate-pulse"></Box>
+
+          {/* Các góc trang trí Tactical UI */}
+          <Box className="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-cyan-400"></Box>
+          <Box className="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-cyan-400"></Box>
+
+          {/* Trạng thái Online (Nếu cần) */}
+          <Box className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-green-500 rounded-full border border-[#05161A] shadow-[0_0_5px_#22c55e]"></Box>
+        </Box>
+        <Text className="text-cyan-400 font-bold tracking-[0.1em] text-xs md:text-sm uppercase truncate max-w-[120px]">
+          {user?.username || "COMMANDER"}
+        </Text>
+      </Box>
 
       {/* Bên phải: XP Badge */}
-      <div className="bg-[#0a1a29]/80 border border-cyan-800 px-2 py-1 rounded flex items-center gap-1.5 shadow-inner">
-        <div className="w-3.5 h-3.5 bg-cyan-500 rounded-sm flex items-center justify-center text-[8px] text-[#061421] font-bold">
+      <Box className="bg-[#0a1a29]/80 border border-cyan-800 px-2 py-1 rounded flex items-center gap-1.5 shadow-inner">
+        <Box className="w-3.5 h-3.5 bg-cyan-500 rounded-sm flex items-center justify-center text-[8px] text-[#061421] font-bold">
           ★
-        </div>
-        <span className="text-cyan-300 font-bold text-xs tracking-tighter">
-          {(xp || 0).toLocaleString()}{" "}
-          <span className="text-[9px] font-normal opacity-60 ml-0.5">XP</span>
-        </span>
-      </div>
-    </div>
+        </Box>
+        <Box className="text-cyan-300 font-bold text-xs tracking-tighter">
+          {(user?.wins || 0).toLocaleString()}
+          {" Win"}
+        </Box>
+      </Box>
+    </Box>
   );
 };
 

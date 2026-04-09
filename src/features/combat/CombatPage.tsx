@@ -182,6 +182,9 @@ const CombatPage: React.FC = () => {
       />
 
       <Box className="combat-main-content pb-32">
+        <Box className="flex items-center justify-between mb-4">
+          <Text size="small" className="text-cyan-400">Room: {gameId}</Text>
+        </Box>
         <CombatHeader />
 
         {/* LƯỚI RADAR ĐỊCH */}

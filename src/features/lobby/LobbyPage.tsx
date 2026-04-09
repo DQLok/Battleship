@@ -32,7 +32,7 @@ export const LobbyPage = () => {
       return;
     }
     // if (data) navigate(`/combat?gameId=${data.id}`);
-    navigate(`/waiting`);
+    navigate(`/waiting`, { state: { gameId: data.id } });
   };
 
   const handleDelete = async (gameId: string) => {

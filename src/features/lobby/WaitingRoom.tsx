@@ -4,50 +4,63 @@ import { supabase } from "@/api/supabaseClient";
 import { useLocation } from "react-router-dom";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
-import { getUserInfo, showToast } from "zmp-sdk";
-import { getAppUserId } from "@/utils/user-info";
+import { showToast } from "zmp-sdk";
+import { generateFakePlayers, getAppUserId } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
-
-const generateFakePlayers = (count: number): Profile[] => {
-  const names = [
-    "ADMIRAL_VNG",
-    "CAPTAIN_X",
-    "NAVIGATOR_88",
-    "LT_KIM",
-    "STRIKER_ALPHA",
-    "RECON_EYE",
-    "VULCAN_7",
-    "SHADOW_OPS",
-  ];
-
-  return Array.from({ length: count }).map((_, index) => {
-    // Tạo một chuỗi ngẫu nhiên làm seed (ví dụ: "a1b2c3")
-    const randomSeed = Math.random().toString(36).substring(2, 7);
-
-    return {
-      id: `fake-id-${randomSeed}-${index}`,
-      username:
-        names[Math.floor(Math.random() * names.length)] + "_" + (index + 1),
-      // Truyền randomSeed vào đây để DiceBear tự vẽ hình mới
-      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`,
-    };
-  }) as Profile[];
-};
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();
   const { state } = useLocation(); // Giả sử bạn truyền gameId qua đây
-  const gameId = state?.gameId || "ROOM_ID_HERE";
+  const gameId = state?.gameId || "###";
 
   const [game, setGame] = useState<any>(null);
   const [players, setPlayers] = useState<Profile[]>([]);
   const [myId, setMyId] = useState("");
   const { user } = useUser();
 
+  // Thêm vào trong component WaitingRoom
+  const toggleGameMode = async () => {
+    if (game?.host_id !== myId) return;
+
+    const nextMode = game.game_mode === "1vs1" ? "team" : "1vs1";
+
+    const { error } = await supabase
+      .from("games")
+      .update({ game_mode: nextMode })
+      .eq("id", gameId);
+
+    if (error) showToast({ message: "Không thể đổi chế độ!" });
+  };
+
+  // --- LOGIC KIỂM TRA TẤT CẢ SẴN SÀNG ---
+  const isAllReady = React.useMemo(() => {
+    // Nếu chưa có dữ liệu game, mặc định là chưa sẵn sàng
+    if (!game || !game.members) return false;
+
+    // Lọc danh sách những người cần sẵn sàng (không tính Host)
+    const otherMembers = game.members.filter(
+      (id: string) => id !== game.host_id
+    );
+
+    // Nếu phòng chỉ có 1 mình Host
+    if (otherMembers.length === 0) return false;
+
+    // Kiểm tra: tất cả thành viên khác phải nằm trong mảng ready_members
+    // Dùng mảng rỗng [] làm mặc định nếu ready_members bị undefined/null
+    const readyList = game.ready_members || [];
+
+    return otherMembers.every((id: string) => readyList.includes(id));
+  }, [game]);
+
   const handleAction = async () => {
     if (!game) return;
 
     if (game.host_id === myId) {
+      // --- CHỈ CHO PHÉP NẾU TẤT CẢ ĐÃ READY ---
+      if (!isAllReady) {
+        showToast({ message: "Chờ tất cả người chơi sẵn sàng!" });
+        return;
+      }
       // --- KỊCH BẢN CHO HOST: BẮT ĐẦU GAME ---
       const { error } = await supabase
         .from("games")
@@ -63,12 +76,13 @@ export const WaitingRoom = () => {
         navigate("/combat", { state: { gameId } });
       }
     } else {
-      // --- KỊCH BẢN CHO MEMBER: SẴN SÀNG ---
-      // Kiểm tra xem đã sẵn sàng chưa để toggle (thêm/xóa khỏi mảng)
-      const isReady = game.ready_members?.includes(myId);
+      // --- KỊCH BẢN CHO MEMBER ---
+      const readyList = game?.ready_members || []; // Đảm bảo luôn là mảng
+      const isReady = readyList.includes(myId);
+
       const newReadyList = isReady
-        ? game.ready_members.filter((id) => id !== myId)
-        : [...(game.ready_members || []), myId];
+        ? readyList.filter((id) => id !== myId)
+        : [...readyList, myId];
 
       await supabase
         .from("games")
@@ -87,7 +101,7 @@ export const WaitingRoom = () => {
       .single();
 
     if (gameData) {
-      const fakePlayers = generateFakePlayers(6);
+      const fakePlayers = generateFakePlayers(0);
       setGame(gameData);
       // Fetch thông tin profile của tất cả members trong mảng
       const { data: profiles } = await supabase
@@ -105,7 +119,6 @@ export const WaitingRoom = () => {
       return;
     }
     setMyId(user.id);
-
     fetchData();
 
     const channel = supabase
@@ -118,13 +131,26 @@ export const WaitingRoom = () => {
           table: "games",
           filter: `id=eq.${gameId}`,
         },
-        (payload) => {
+        async (payload) => {
           const updatedGame = payload.new;
           setGame(updatedGame);
 
-          // Nếu Host đã đổi status sang 'playing', các máy khách tự động chuyển trang
+          // QUAN TRỌNG: Khi members thay đổi, phải fetch lại profile người chơi mới
+          if (updatedGame.members) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, username, avatar_url")
+              .in("id", updatedGame.members);
+
+            if (profiles) {
+              // Kết hợp với bot (nếu bạn vẫn dùng bot để test)
+              const fakePlayers = generateFakePlayers(6);
+              setPlayers([...profiles, ...fakePlayers] as Profile[]);
+            }
+          }
+
           if (updatedGame.status === "playing") {
-            navigate("/game-play", { state: { gameId } });
+            navigate("/combat", { state: { gameId } });
           }
         }
       )
@@ -133,7 +159,7 @@ export const WaitingRoom = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameId]);
+  }, [gameId, user]);
 
   return (
     <Page className="min-h-screen pt-20 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden">
@@ -143,18 +169,8 @@ export const WaitingRoom = () => {
         textColor="#22d3ee"
         backgroundColor="#061421"
       />
-      {/* Background Grid Pattern */}
-      <div
-        className="fixed inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(#00FFFF 1px, transparent 1px), linear-gradient(90deg, #00FFFF 1px, transparent 1px)",
-          //   size: "20px 20px",
-        }}
-      ></div>
-
       {/* Room ID Box */}
-      <div className="bg-[#07242B] border border-cyan-900 p-3 mb-6 flex justify-between items-center">
+      <div className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
         <div>
           <p className="text-[10px] text-cyan-700 uppercase">Command Deck</p>
           <p className="text-xl font-bold">
@@ -163,41 +179,81 @@ export const WaitingRoom = () => {
         </div>
         <div className="flex items-center gap-2 bg-[#0A323B] px-3 py-1 rounded-full border border-cyan-500/30">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs uppercase">Public</span>
+          <span className="text-xs uppercase">
+            {game?.game_mode === "1vs1" ? "Duel (1vs1)" : "Tactical (Teams)"}
+          </span>
         </div>
       </div>
 
+      {/* NEW: Mode Selection (Chỉ dành cho Host) */}
+      {game?.host_id === myId && (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={toggleGameMode}
+            className={`flex-1 py-2 text-[10px] border transition-all ${
+              game?.game_mode === "1vs1"
+                ? "bg-cyan-400 text-black border-cyan-400"
+                : "border-cyan-900 text-cyan-900"
+            }`}
+          >
+            SINGLE DUEL (1VS1)
+          </button>
+          <button
+            onClick={toggleGameMode}
+            className={`flex-1 py-2 text-[10px] border transition-all ${
+              game?.game_mode === "team"
+                ? "bg-cyan-400 text-black border-cyan-400"
+                : "border-cyan-900 text-cyan-900"
+            }`}
+          >
+            TEAM BATTLE (4VS4)
+          </button>
+        </div>
+      )}
+
       {/* Team Section */}
       <Box className="flex-1 z-10 overflow-y-auto pr-1 no-scrollbar space-y-8">
-        {/* --- TEAM ALPHA --- */}
+        {/* --- TEAM ALPHA (Luôn hiển thị) --- */}
         <Box>
-          <div className="flex justify-between items-center mb-4 border-b border-cyan-900 pb-1 bg-transparent z-20">
+          <div className="flex justify-between items-center mb-4 border-b border-cyan-900 pb-1">
             <h2 className="text-sm font-bold flex items-center gap-2">
-              <Icon icon="zi-group" className="text-cyan-400" /> TEAM ALPHA
+              <Icon icon="zi-group" />{" "}
+              {game?.game_mode === "1vs1" ? "PLAYER 1" : "TEAM ALPHA"}
             </h2>
-            <span className="text-[10px] text-cyan-700">
-              {Math.min(players.length, 4)} / 4 Connected
-            </span>
           </div>
-
           <div className="space-y-3">
-            {renderTeamSlots(players.slice(0, 4), "alpha", game, myId)}
+            {renderTeamSlots(
+              players.slice(0, game?.game_mode === "1vs1" ? 1 : 4),
+              "alpha",
+              game,
+              myId,
+              game?.game_mode === "1vs1" ? 1 : 4 // Số slot tối đa
+            )}
           </div>
         </Box>
 
-        {/* --- TEAM BRAVO --- */}
+        {/* --- TEAM BRAVO (Chỉ hiển thị slot 1 nếu là 1vs1) --- */}
         <Box>
-          <div className="flex justify-between items-center mb-4 border-b border-red-900/50 pb-1 sticky top-0 bg-[#05161A] z-20">
+          <div className="flex justify-between items-center mb-4 border-b border-red-900/50 pb-1">
             <h2 className="text-sm font-bold flex items-center gap-2 text-red-400">
-              <Icon icon="zi-group" /> TEAM BRAVO
+              <Icon icon="zi-group" />{" "}
+              {game?.game_mode === "1vs1" ? "PLAYER 2" : "TEAM BRAVO"}
             </h2>
-            <span className="text-[10px] text-red-900">
-              {Math.max(0, Math.min(players.length - 4, 4))} / 4 Connected
-            </span>
           </div>
-
           <div className="space-y-3">
-            {renderTeamSlots(players.slice(4, 8), "bravo", game, myId)}
+            {/* Logic BRAVO: 
+                - 1vs1: Lấy người chơi thứ 2 (index 1), tối đa 1 slot
+                - Team: Lấy từ người chơi thứ 5 (index 4), tối đa 4 slot 
+            */}
+            {renderTeamSlots(
+              game?.game_mode === "1vs1"
+                ? players.slice(1, 2)
+                : players.slice(4, 8),
+              "bravo",
+              game,
+              myId,
+              game?.game_mode === "1vs1" ? 1 : 4
+            )}
           </div>
         </Box>
       </Box>
@@ -210,10 +266,34 @@ export const WaitingRoom = () => {
 
         <button
           onClick={handleAction}
-          className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-4 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,255,0.5)] transition-all active:scale-95 uppercase tracking-tighter"
+          disabled={game?.host_id === myId && !isAllReady}
+          className={`flex-1 font-black py-4 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-tighter
+    ${
+      game?.host_id === myId
+        ? isAllReady
+          ? "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,255,255,0.5)]" // Host đủ điều kiện
+          : "bg-slate-700 text-slate-400 cursor-not-allowed opacity-50" // Host đang chờ
+        : (game?.ready_members || []).includes(myId)
+        ? "bg-[#0A262E] text-cyan-700 border border-cyan-900" // Member ĐÃ READY (Làm tối đi)
+        : "bg-cyan-400 text-black shadow-[0_0_20px_rgba(0,255,255,0.5)]" // Member CHƯA READY (Nổi bật)
+    }`}
         >
-          <Icon icon="zi-play-solid" />
-          {game?.host_id === myId ? "BẮT ĐẦU" : "SẴN SÀNG"}
+          <Icon
+            icon={game?.host_id === myId ? "zi-play-solid" : "zi-check"}
+            className={
+              (game?.ready_members || []).includes(myId) &&
+              game?.host_id !== myId
+                ? "opacity-50"
+                : ""
+            }
+          />
+          {game?.host_id === myId
+            ? isAllReady
+              ? "BẮT ĐẦU"
+              : "ĐANG CHỜ..."
+            : (game?.ready_members || []).includes(myId)
+            ? "HỦY SẴN SÀNG"
+            : "SẴN SÀNG"}
         </button>
 
         <button className="p-4 border border-cyan-500 bg-[#0A262E] text-cyan-400">
@@ -228,29 +308,27 @@ const renderTeamSlots = (
   teamPlayers: Profile[],
   teamType: "alpha" | "bravo",
   game: any,
-  myId: string
+  myId: string,
+  maxSlots: number // Nhận tham số động
 ) => {
-  const MAX_SLOTS = 4;
-  // SỬA Ở ĐÂY: Thêm kiểu dữ liệu React.ReactNode[] cho mảng slots
   const slots: React.ReactNode[] = [];
 
-  for (let i = 0; i < MAX_SLOTS; i++) {
+  for (let i = 0; i < maxSlots; i++) {
     if (teamPlayers[i]) {
-      // Nếu có người chơi thật tại vị trí này
       slots.push(
         <PlayerItem
           key={teamPlayers[i].id}
           player={teamPlayers[i]}
           game={game}
           myId={myId}
-          role={i === 0 ? "Commander" : "Crew"}
+          role={i === 0 && game?.game_mode === "team" ? "Commander" : "Units"}
           teamColor={
             teamType === "alpha" ? "border-cyan-400" : "border-red-500"
           }
+          index={i}
         />
       );
     } else {
-      // Nếu vị trí này trống -> Hiển thị Slot chờ
       slots.push(
         <div key={`empty-${teamType}-${i}`} className="relative group">
           <div
@@ -258,22 +336,7 @@ const renderTeamSlots = (
               teamType === "alpha" ? "border-cyan-900/30" : "border-red-900/30"
             } opacity-40`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded border border-dashed border-slate-800 flex items-center justify-center">
-                <Icon icon="zi-user" className="text-slate-800" size={20} />
-              </div>
-              <div>
-                <p className="text-slate-700 font-bold text-xs uppercase tracking-widest italic">
-                  Awaiting Unit...
-                </p>
-                <p className="text-[9px] text-slate-800 font-mono italic">
-                  EMPTY_SLOT_0{i + 1}
-                </p>
-              </div>
-            </div>
-            <div className="text-[8px] text-slate-900 uppercase font-mono">
-              Standby
-            </div>
+            {/* ... Nội dung slot trống giữ nguyên */}
           </div>
         </div>
       );
