@@ -34,23 +34,26 @@ const CombatPage: React.FC = () => {
     draggingShip,
     enemyShips,
     winner,
+    isBotMode,
+    turn,
     setEnemyShips,
     setTurn,
-    turn,
     autoPlaceShips,
     recordMove,
     resetShips,
+    generateRandomFleet,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
   const [isReadySent, setIsReadySent] = useState(false);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
-  const opponentId = state?.opponentId;
+  // const opponentId = state?.opponentId;
+  // const isOnline = state?.isOnline;
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
 
   useEffect(() => {
-    if (!gameId || !user) return;
+    if (isBotMode || !gameId || !user) return;
 
     // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
     const moveChannel = supabase
@@ -107,21 +110,29 @@ const CombatPage: React.FC = () => {
       supabase.removeChannel(moveChannel);
       supabase.removeChannel(boardChannel);
     };
-  }, [gameId, user?.id]); // Chỉ phụ thuộc vào ID cơ bản
+  }, [gameId, user?.id, isBotMode]); // Chỉ phụ thuộc vào ID cơ bản
 
   // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
   //Thêm useEffect này bên dưới cái Realtime của bạn
   useEffect(() => {
     const handleCleanUp = async () => {
       if (winner && gameId && !isFinishing) {
-        // Winner ID: Nếu mình thắng thì là user.id, nếu địch thắng thì là opponentId
-        const winnerId = winner === "player" ? user?.id : opponentId;
+        if (isBotMode) {
+          openSnackbar({
+            text: `Chiến dịch ${
+              winner === "player" ? "Thất bại" : "Thành công"
+            }`,
+          });
+        } else {
+          // Winner ID: Nếu mình thắng thì là user.id, nếu địch thắng thì là opponentId
+          const winnerId = winner === "player" ? user?.id : ""; //opponentId;
 
-        if (winnerId) {
-          console.log(
-            "🛠️ Đang dọn dẹp dữ liệu trận đấu và cập nhật Profile..."
-          );
-          await finishGame(gameId, winnerId);
+          if (winnerId) {
+            console.log(
+              "🛠️ Đang dọn dẹp dữ liệu trận đấu và cập nhật Profile..."
+            );
+            await finishGame(gameId, winnerId);
+          }
         }
       }
     };
@@ -133,42 +144,103 @@ const CombatPage: React.FC = () => {
   const handleAttackEnemy = async (x: number, y: number) => {
     if (!inBattle || !turn || !user || isFinishing) return;
 
-    const { error } = await supabase.from("moves").insert({
-      game_id: gameId,
-      user_id: user.id,
-      x,
-      y,
-    });
+    if (isBotMode) {
+      console.log("[Player] Tấn công", x, y);
+      // --- CHẾ ĐỘ BOT ---
+      // 1. Kiểm tra xem ô (x,y) đã bắn chưa (tránh bắn lại ô cũ)
+      if (useCombatStore.getState().enemyGrid[y][x] !== "empty") return;
 
-    if (error) openSnackbar({ text: "Pháo kích thất bại!" });
+      // 2. Kiểm tra xem có trúng tàu Bot (enemyShips) không
+      const hitShip = enemyShips.find((s) => {
+        for (let i = 0; i < s.size; i++) {
+          const sx = s.isHorizontal ? s.x + i : s.x;
+          const sy = s.isHorizontal ? s.y : s.y + i;
+          if (sx === x && sy === y) return true;
+        }
+        return false;
+      });
+
+      // 3. Kiểm tra nếu trúng thì tàu đó có bị chìm luôn không (để lấy sunkShipName)
+      let sunkName = "";
+      if (hitShip) {
+        // Giả lập grid tạm để check chìm
+        const tempGrid = useCombatStore
+          .getState()
+          .enemyGrid.map((row) => [...row]);
+        tempGrid[y][x] = "hit"; // Đánh dấu ô vừa bắn là hit
+
+        const isSunk = placedShips.every(() => {
+          // Tận dụng helper isShipSunk
+          for (let i = 0; i < hitShip.size; i++) {
+            const cx = hitShip.isHorizontal ? hitShip.x + i : hitShip.x;
+            const cy = hitShip.isHorizontal ? hitShip.y : hitShip.y + i;
+            if (tempGrid[cy][cx] !== "hit") return false;
+          }
+          return true;
+        });
+        if (isSunk) sunkName = hitShip.name;
+      }
+      console.log(`[Bot] Tấn công ${x},${y} -> ${hitShip ? "hit" : "miss"}`);
+
+      // 4. Ghi nhận nước đi vào Store (userId khác currentUserId để xác định phe bắn)
+      recordMove(
+        user.id, // userId của người bắn
+        x,
+        y,
+        !!hitShip,
+        user.id, // currentUserId để so sánh
+        sunkName
+      );
+    } else {
+      // --- CHẾ ĐỘ ONLINE (Giữ nguyên) ---
+      const { error } = await supabase.from("moves").insert({
+        game_id: gameId,
+        user_id: user.id,
+        x,
+        y,
+      });
+      if (error) openSnackbar({ text: "Pháo kích thất bại!" });
+    }
   };
 
   // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
   const handleStartBattle = async () => {
     if (!isReadyToStart || !user) return;
 
-    const { error } = await saveShipLayout(gameId, user.id, placedShips);
-    if (error) {
-      openSnackbar({ text: "Lỗi kết nối vệ tinh!" });
-      return;
-    }
+    if (isBotMode) {
+      // 1. Tạo đội hình ngẫu nhiên cho Bot
+      const botFleet = generateRandomFleet();
+      setEnemyShips(botFleet);
 
-    setIsReadySent(true);
-
-    const { data: opponent } = await supabase
-      .from("game_boards")
-      .select("ships_data, is_ready")
-      .eq("game_id", gameId)
-      .neq("user_id", user.id)
-      .maybeSingle();
-
-    if (opponent?.is_ready) {
-      setEnemyShips(opponent.ships_data);
+      // 2. Vào trận ngay lập tức
+      setIsReadySent(true);
       setInBattle(true);
       setTurn(true);
-      openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
+      openSnackbar({ text: "CHIẾN DỊCH VỚI BOT BẮT ĐẦU!" });
     } else {
-      openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
+      const { error } = await saveShipLayout(gameId, user.id, placedShips);
+      if (error) {
+        openSnackbar({ text: "Lỗi kết nối vệ tinh!" });
+        return;
+      }
+
+      setIsReadySent(true);
+
+      const { data: opponent } = await supabase
+        .from("game_boards")
+        .select("ships_data, is_ready")
+        .eq("game_id", gameId)
+        .neq("user_id", user.id)
+        .maybeSingle();
+
+      if (opponent?.is_ready) {
+        setEnemyShips(opponent.ships_data);
+        setInBattle(true);
+        setTurn(true);
+        openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
+      } else {
+        openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
+      }
     }
   };
 

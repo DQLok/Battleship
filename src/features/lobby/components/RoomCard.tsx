@@ -1,3 +1,4 @@
+import { useCombatStore } from "@/hooks/useCombatStore";
 import React from "react";
 import { Box, Text, Button, Avatar, Icon, useNavigate } from "zmp-ui";
 
@@ -14,14 +15,7 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
   const isMine = room.host_id === myId;
   const isPlaying = room.status === "playing";
   const host = room.host;
-  const navigate = useNavigate();
   const isOnline = room.id !== "###";
-
-  // Hàm xử lý điều hướng chung dựa trên status
-  const goToRoom = () => {
-    const targetPath = isPlaying || !isOnline ? "/combat" : "/waiting";
-    navigate(targetPath, { state: { gameId: room.id } });
-  };
 
   const handleAction = (e: React.MouseEvent, callback: () => void) => {
     e.stopPropagation();
@@ -31,7 +25,6 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
   return (
     <Box
       className="relative overflow-hidden mb-4 transition-all active:scale-[0.98] cursor-pointer"
-      onClick={goToRoom}
       style={{
         background: isMine ? "rgba(20, 40, 45, 0.95)" : "rgba(10, 26, 31, 0.9)",
         borderLeft: isMine
@@ -142,17 +135,18 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
           disabled={isFull && !isMine && !room.members?.includes(myId)}
           onClick={(e) =>
             handleAction(e, () => {
-              if (isMine || room.members?.includes(myId)) {
-                goToRoom();
-              } else {
-                onJoin(room.id);
-              }
+              // if (isMine || room.members?.includes(myId)) {
+              //   goToRoom();
+              // } else {
+              //   onJoin(room.id);
+              // }
+              onJoin(room.id);
             })
           }
           className={`h-10 uppercase font-black tracking-tighter flex-1 ${
             isMine
               ? "bg-yellow-500 text-black"
-              : isPlaying
+              : isPlaying || !isOnline
               ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
               : isFull
               ? "bg-gray-800 text-gray-500"
@@ -161,7 +155,7 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
           style={{ borderRadius: "2px", border: "none" }}
         >
           {isMine || room.members?.includes(myId)
-            ? isPlaying
+            ? isPlaying || !isOnline
               ? "VÀO CHIẾN TRƯỜNG"
               : "VÀO PHÒNG CHỜ"
             : isFull

@@ -7,13 +7,14 @@ import {
   Header,
   Page,
   useSnackbar,
+  useLocation,
 } from "zmp-ui";
 import { supabase } from "@/api/supabaseClient";
-import { useLocation } from "react-router-dom";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
 import { generateFakePlayers, getAppUserId } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
+import { useCombatStore } from "@/hooks/useCombatStore";
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();

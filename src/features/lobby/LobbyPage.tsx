@@ -1,14 +1,24 @@
 import { useEffect, useState } from "react";
-import { Page, Tabs, Box, Button, Icon, Header, useSnackbar } from "zmp-ui";
+import {
+  Page,
+  Tabs,
+  Box,
+  Button,
+  Icon,
+  Header,
+  useSnackbar,
+  useNavigate,
+} from "zmp-ui";
 import "@/css/children/LobbyPage.scss";
 import { useSupabase } from "@/hooks/useSupabase";
-import { useNavigate } from "react-router-dom";
 import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
 import { useUser } from "@/context/UserContext";
+import { useCombatStore } from "@/hooks/useCombatStore";
 
 export const LobbyPage = () => {
   const { rooms, createRoom, joinRoom, fetchRooms, deleteRoom } = useSupabase();
+  const { setIsBotMode } = useCombatStore();
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
   const { user } = useUser();
@@ -51,6 +61,13 @@ export const LobbyPage = () => {
   };
 
   const handleJoin = async (gameId: string) => {
+    console.log("Joining room:", gameId);
+    if (!gameId) return;
+    if (gameId === "###") {
+      setIsBotMode(true);
+      navigate("/combat", { state: { gameId } });
+      return;
+    }
     // 1. Tìm thông tin phòng hiện tại trong danh sách rooms đã fetch
     const targetRoom = rooms.find((r) => r.id === gameId);
     if (!targetRoom) return;
