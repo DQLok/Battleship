@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Header, Modal, Page, Text, useLocation } from "zmp-ui";
-import { showToast } from "zmp-sdk";
+import { Box, Button, Header, Modal, Page, Text, useLocation, useSnackbar } from "zmp-ui";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
@@ -19,6 +18,7 @@ const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
   const { saveShipLayout, finishGame, isFinishing } = useSupabase();
+  const { openSnackbar } = useSnackbar();
 
   const {
     placedShips,
@@ -87,7 +87,7 @@ const CombatPage: React.FC = () => {
             if (currentPlacedShips.length === 4) {
               setInBattle(true);
               setTurn(true);
-              showToast({ message: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
+              openSnackbar({ text: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
             }
           }
         }
@@ -131,7 +131,7 @@ const CombatPage: React.FC = () => {
       y,
     });
 
-    if (error) showToast({ message: "Pháo kích thất bại!" });
+    if (error) openSnackbar({ text: "Pháo kích thất bại!" });
   };
 
   // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
@@ -140,7 +140,7 @@ const CombatPage: React.FC = () => {
 
     const { error } = await saveShipLayout(gameId, user.id, placedShips);
     if (error) {
-      showToast({ message: "Lỗi kết nối vệ tinh!" });
+      openSnackbar({ text: "Lỗi kết nối vệ tinh!" });
       return;
     }
 
@@ -157,9 +157,9 @@ const CombatPage: React.FC = () => {
       setEnemyShips(opponent.ships_data);
       setInBattle(true);
       setTurn(true);
-      showToast({ message: "CHIẾN DỊCH BẮT ĐẦU!" });
+      openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
     } else {
-      showToast({ message: "Đang đợi đối thủ dàn trận..." });
+      openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
     }
   };
 

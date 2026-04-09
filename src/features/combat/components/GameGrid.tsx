@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
-import { showToast } from "zmp-sdk";
+import { useSnackbar } from "zmp-ui";
 
 const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
@@ -33,6 +33,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLongPress, setIsLongPress] = useState(false);
+  const { openSnackbar } = useSnackbar();
 
   const getCoords = (clientX: number, clientY: number) => {
     if (!gridRef.current) return null;
@@ -65,7 +66,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
 
     if (type === "enemy") {
       if (!turn) {
-        showToast({ message: "Chờ đến lượt của bạn!" });
+        openSnackbar({ text: "Chờ đến lượt của bạn!" });
         return;
       }
       // Ngăn bắn vào ô đã có kết quả

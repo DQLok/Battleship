@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Page, Tabs, Box, Button, Icon, Header, useSnackbar } from "zmp-ui";
 import "@/css/children/LobbyPage.scss";
 import { useSupabase } from "@/hooks/useSupabase";
-import { showToast } from "zmp-sdk";
 import { useNavigate } from "react-router-dom";
 import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
@@ -17,7 +16,7 @@ export const LobbyPage = () => {
 
   useEffect(() => {
     if (!user) {
-      showToast({ message: "Vui lòng đăng nhập!" });
+      openSnackbar({ text: "Vui lòng đăng nhập!" });
       return;
     }
     setMyId(user.id);

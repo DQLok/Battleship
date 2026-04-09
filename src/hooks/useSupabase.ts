@@ -1,12 +1,13 @@
 // src/hooks/useSupabase.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { showToast } from "zmp-sdk";
+import { useSnackbar } from "zmp-ui";
 
 export const useSupabase = () => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const { openSnackbar } = useSnackbar();
 
   // 1. Fetch danh sách phòng
   const fetchRooms = async () => {
@@ -24,27 +25,6 @@ export const useSupabase = () => {
     if (!error && data) {
       setRooms(data);
     }
-    // if (!data || data.length === 0) {
-    //   setRooms([
-    //     {
-    //       id: "0",
-    //       player_1: "",
-    //       player_2: "",
-    //       current_turn: "",
-    //       status: "waiting",
-    //       created_at: "",
-    //     },
-    //     {
-    //       id: "1",
-    //       player_1: "0",
-    //       player_2: "",
-    //       current_turn: "",
-    //       status: "waiting",
-    //       created_at: "",
-    //     },
-    //   ]);
-    // }
-    console.log(rooms);
     setLoading(false);
   };
 
@@ -131,8 +111,8 @@ export const useSupabase = () => {
 
       if (error) throw error;
 
-      showToast({
-        message: "Trận đấu kết thúc!",
+      openSnackbar({
+        text: "Trận đấu kết thúc!",
       });
 
       // Sau khi kết thúc, ta nên fetch lại danh sách phòng để cập nhật UI Lobby
@@ -141,8 +121,8 @@ export const useSupabase = () => {
       return true;
     } catch (err: any) {
       console.error("Lỗi thực thi finish_game:", err.message);
-      showToast({
-        message: "Lỗi lưu kết quả, vui lòng kiểm tra mạng.",
+      openSnackbar({
+        text: "Lỗi lưu kết quả, vui lòng kiểm tra mạng.",
       });
       return false;
     } finally {

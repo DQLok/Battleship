@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Icon, Button, useNavigate, Box, Header, Page } from "zmp-ui";
+import {
+  Icon,
+  Button,
+  useNavigate,
+  Box,
+  Header,
+  Page,
+  useSnackbar,
+} from "zmp-ui";
 import { supabase } from "@/api/supabaseClient";
 import { useLocation } from "react-router-dom";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
-import { showToast } from "zmp-sdk";
 import { generateFakePlayers, getAppUserId } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
 
@@ -17,6 +24,7 @@ export const WaitingRoom = () => {
   const [players, setPlayers] = useState<Profile[]>([]);
   const [myId, setMyId] = useState("");
   const { user } = useUser();
+  const { openSnackbar } = useSnackbar();
 
   // Thêm vào trong component WaitingRoom
   const toggleGameMode = async () => {
@@ -24,12 +32,19 @@ export const WaitingRoom = () => {
 
     const nextMode = game.game_mode === "1vs1" ? "team" : "1vs1";
 
+    if (nextMode === "team") {
+      openSnackbar({
+        text: "Chiến dịch sẽ mở trong tương lai!",
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from("games")
       .update({ game_mode: nextMode })
       .eq("id", gameId);
 
-    if (error) showToast({ message: "Không thể đổi chế độ!" });
+    if (error) openSnackbar({ text: "Không thể đổi chế độ!" });
   };
 
   // --- LOGIC KIỂM TRA TẤT CẢ SẴN SÀNG ---
@@ -58,7 +73,7 @@ export const WaitingRoom = () => {
     if (game.host_id === myId) {
       // --- CHỈ CHO PHÉP NẾU TẤT CẢ ĐÃ READY ---
       if (!isAllReady) {
-        showToast({ message: "Chờ tất cả người chơi sẵn sàng!" });
+        openSnackbar({ text: "Chờ tất cả người chơi sẵn sàng!" });
         return;
       }
       // --- KỊCH BẢN CHO HOST: BẮT ĐẦU GAME ---
@@ -115,7 +130,7 @@ export const WaitingRoom = () => {
   // 2. Realtime lắng nghe thay đổi (Khi có người Join/Leave)
   useEffect(() => {
     if (!user) {
-      showToast({ message: "Vui lòng đăng nhập!" });
+      openSnackbar({ text: "Vui lòng đăng nhập!" });
       return;
     }
     setMyId(user.id);
