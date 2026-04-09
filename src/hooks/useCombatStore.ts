@@ -25,7 +25,7 @@ interface CombatState {
   // States
   gameId: string | null;
   user: any;
-  opponentId: string | null;
+  isBotMode: boolean;
   playerGrid: CellStatus[][];
   enemyGrid: CellStatus[][];
   placedShips: Ship[];
@@ -40,7 +40,8 @@ interface CombatState {
   isProcessing: boolean;
 
   // Actions
-  initGame: (gameId: string, user: any, opponentId: string) => void;
+  initGame: (gameId: string, user: any, isBotMode: boolean) => void;
+  setIsBotMode: (val: boolean) => void;
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
   generateRandomFleet: () => Ship[];
   setDraggingShip: (ship: { size: number; name: string } | null) => void;
@@ -72,6 +73,7 @@ interface CombatState {
     existingShips: Ship[]
   ) => boolean;
   isShipSunk: (grid: CellStatus[][], ship: Ship) => boolean;
+  botTurnAction: () => Promise<void>;
 }
 
 const createEmptyGrid = () =>
@@ -82,7 +84,7 @@ const createEmptyGrid = () =>
 export const useCombatStore = create<CombatState>((set, get) => ({
   gameId: null,
   user: null,
-  opponentId: null,
+  isBotMode: false,
   playerGrid: createEmptyGrid(),
   enemyGrid: createEmptyGrid(),
   placedShips: [],
@@ -96,7 +98,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   sunkShipsData: [],
   isProcessing: false,
 
-  initGame: (gameId, user, opponentId) => set({ gameId, user, opponentId }),
+  initGame: (gameId, user, isBotMode) => set({ gameId, user, isBotMode }),
 
   refreshGrid: (ships, ghost) => {
     const newGrid = createEmptyGrid();
@@ -121,6 +123,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     }
     return newGrid;
   },
+
+  setIsBotMode: (val) => set({ isBotMode: val }),
 
   // ... (Các hàm setDraggingShip, updateDraggingPos, placeShip, pickUpShip giữ nguyên như code của bạn)
   setDraggingShip: (ship) => {
@@ -312,6 +316,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   },
 
   recordMove: (userId, x, y, isHit, currentUserId, sunkShipName) => {
+    const { user, isBotMode, turn, winner } = get();
+    if (winner) return;
+
     const status = isHit ? "hit" : "miss";
     const isOpponentMove = userId !== currentUserId;
 
@@ -407,6 +414,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     });
 
     get().checkGameOver();
+
+    const stateAfter = get();
+    if (isBotMode && !stateAfter.turn && !stateAfter.winner) {
+      get().botTurnAction();
+    }
   },
 
   checkGameOver: async () => {
@@ -429,5 +441,34 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     if (currentWinner) {
       set({ winner: currentWinner });
     }
+  },
+
+  botTurnAction: async () => {
+    const { playerGrid, placedShips, isBotMode, winner } = get();
+    if (!isBotMode || winner) return;
+
+    set({ isProcessing: true });
+    await new Promise((r) => setTimeout(r, 800)); // Delay cho thật
+
+    let x,
+      y,
+      valid = false;
+    while (!valid) {
+      x = Math.floor(Math.random() * 10);
+      y = Math.floor(Math.random() * 10);
+      if (playerGrid[y][x] === "empty" || playerGrid[y][x] === "ship")
+        valid = true;
+    }
+
+    const isHit = playerGrid[y][x] === "ship";
+
+    // Kiểm tra xem có tàu nào của người chơi bị chìm không
+    let sunkName = undefined;
+    if (isHit) {
+      // Logic check chìm tàu đơn giản cho Bot
+    }
+
+    get().recordMove("bot", x, y, isHit, `${sunkName}`);
+    set({ isProcessing: false });
   },
 }));

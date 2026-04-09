@@ -83,8 +83,15 @@ export const LobbyPage = () => {
   // Logic phân loại phòng cho 2 Tab
   const waitingRooms = rooms; //.filter((r) => r.status === "waiting");
   const friendRooms = rooms.filter(
-    (r) => r.status === "waiting" && r.player_1 !== myId
+    (r) => (r.members || []).includes(myId) && r.host_id !== myId
   );
+  const botRooms = [
+    {
+      id: "###",
+      rooms_name: "Bot Mode",
+      host_id: myId,
+    },
+  ];
 
   return (
     <Page className="lobby-page">
@@ -121,15 +128,28 @@ export const LobbyPage = () => {
             ))}
           </Box>
         </Tabs.Tab>
+        <Tabs.Tab key="bot" label="PHÒNG BOT" className="lobby-tabs">
+          <Box p={4}>
+            {botRooms.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                onJoin={handleJoin}
+                onDelete={handleDelete}
+                myId={myId}
+              />
+            ))}
+          </Box>
+        </Tabs.Tab>
       </Tabs>
 
-      <div className="fixed bottom-20 right-6 z-50">
+      <Box className="fixed bottom-20 right-6 z-50">
         <Button
           className="fab-button"
           icon={<Icon icon="zi-plus" />}
           onClick={handleCreate}
         />
-      </div>
+      </Box>
       <BottomNav />
     </Page>
   );

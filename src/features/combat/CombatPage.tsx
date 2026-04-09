@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Header, Modal, Page, Text, useLocation, useSnackbar } from "zmp-ui";
+import {
+  Box,
+  Button,
+  Header,
+  Modal,
+  Page,
+  Text,
+  useLocation,
+  useSnackbar,
+} from "zmp-ui";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
@@ -176,14 +185,15 @@ const CombatPage: React.FC = () => {
     >
       <Header
         title={inBattle ? "GIAO TRANH THỰC TẾ" : "THIẾT LẬP HẠM ĐỘI"}
-        showBackIcon={false}
         textColor="#22d3ee"
         backgroundColor="#061421"
       />
 
       <Box className="combat-main-content pb-32">
         <Box className="flex items-center justify-between mb-4">
-          <Text size="small" className="text-cyan-400">Room: {gameId}</Text>
+          <Text size="small" className="text-cyan-400">
+            Room: {gameId}
+          </Text>
         </Box>
         <CombatHeader />
 

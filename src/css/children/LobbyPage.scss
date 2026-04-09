@@ -2,7 +2,7 @@
   @apply w-full h-screen flex flex-col pt-16 bg-[#061421] overflow-hidden;
 
   .lobby-tabs {
-    @apply flex items-center justify-center gap-4 bg-[#061421] border-b border-cyan-900/30;
+    @apply gap-4 bg-[#061421] border-b border-cyan-900/30;
   }
 
   .fab-button {
