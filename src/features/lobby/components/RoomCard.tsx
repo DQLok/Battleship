@@ -1,11 +1,12 @@
 import { useCombatStore } from "@/hooks/useCombatStore";
+import { Game } from "@/types/supabase/Game";
 import React from "react";
 import { Box, Text, Button, Avatar, Icon, useNavigate } from "zmp-ui";
 
 interface RoomCardProps {
   room: any;
   myId: string;
-  onJoin: (gameId: string) => void;
+  onJoin: (gameId: string, game: Game) => void;
   onDelete: (gameId: string) => void;
 }
 
@@ -140,7 +141,7 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
               // } else {
               //   onJoin(room.id);
               // }
-              onJoin(room.id);
+              onJoin(room.id, room);
             })
           }
           className={`h-10 uppercase font-black tracking-tighter flex-1 ${

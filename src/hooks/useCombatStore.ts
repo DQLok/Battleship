@@ -1,3 +1,4 @@
+import { Game } from "@/types/supabase/Game";
 import { create } from "zustand";
 
 export type CellStatus = "empty" | "hit" | "miss" | "ship" | "invalid";
@@ -23,7 +24,7 @@ interface DraggingState extends Ship {
 
 interface CombatState {
   // States
-  gameId: string | null;
+  game: Game | null;
   user: any;
   isBotMode: boolean;
   playerGrid: CellStatus[][];
@@ -40,7 +41,7 @@ interface CombatState {
   isProcessing: boolean;
 
   // Actions
-  initGame: (gameId: string, user: any, isBotMode: boolean) => void;
+  initGame: (game: Game, user: any, isBotMode: boolean) => void;
   setIsBotMode: (val: boolean) => void;
   refreshGrid: (ships: Ship[], ghost?: DraggingState) => CellStatus[][];
   generateRandomFleet: () => Ship[];
@@ -82,7 +83,7 @@ const createEmptyGrid = () =>
     .map(() => Array(10).fill("empty"));
 
 export const useCombatStore = create<CombatState>((set, get) => ({
-  gameId: null,
+  game: null,
   user: null,
   isBotMode: false,
   playerGrid: createEmptyGrid(),
@@ -98,7 +99,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   sunkShipsData: [],
   isProcessing: false,
 
-  initGame: (gameId, user, isBotMode) => set({ gameId, user, isBotMode }),
+  initGame: (game, user, isBotMode) => set({ game, user, isBotMode }),
 
   refreshGrid: (ships, ghost) => {
     const newGrid = createEmptyGrid();

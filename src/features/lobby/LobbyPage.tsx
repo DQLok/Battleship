@@ -15,10 +15,11 @@ import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
+import { Game } from "@/types/supabase/Game";
 
 export const LobbyPage = () => {
   const { rooms, createRoom, joinRoom, fetchRooms, deleteRoom } = useSupabase();
-  const { setIsBotMode } = useCombatStore();
+  const { initGame, setIsBotMode } = useCombatStore();
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
   const { user } = useUser();
@@ -60,10 +61,12 @@ export const LobbyPage = () => {
     }
   };
 
-  const handleJoin = async (gameId: string) => {
+  const handleJoin = async (gameId: string, game: Game) => {
     console.log("Joining room:", gameId);
-    if (!gameId) return;
-    if (gameId === "###") {
+    if (!gameId || !game) return;
+    const isBotMode = gameId === "###";
+    initGame(game, user, isBotMode);
+    if (isBotMode) {
       setIsBotMode(true);
       navigate("/combat", { state: { gameId } });
       return;

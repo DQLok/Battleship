@@ -33,6 +33,7 @@ const CombatPage: React.FC = () => {
   const { openSnackbar } = useSnackbar();
 
   const {
+    game,
     placedShips,
     draggingShip,
     enemyShips,
@@ -343,7 +344,7 @@ const CombatPage: React.FC = () => {
       hideScrollbar
     >
       <Header
-        title={inBattle ? "GIAO TRANH THỰC TẾ" : "THIẾT LẬP HẠM ĐỘI"}
+        title={inBattle ? "CHIẾN DỊCH" : "DÀN TRẬN"}
         textColor="#22d3ee"
         backgroundColor="#061421"
       />
@@ -351,7 +352,7 @@ const CombatPage: React.FC = () => {
       <Box className="combat-main-content pb-32">
         <Box className="flex items-center justify-between mb-4">
           <Text size="small" className="text-cyan-400">
-            Room: {gameId}
+            Room: {game?.room_name}
           </Text>
         </Box>
         <CombatHeader />
@@ -362,30 +363,46 @@ const CombatPage: React.FC = () => {
             inBattle && turn ? "" : "pointer-events-none opacity-70"
           }`}
         >
-          <Text
-            size="xxSmall"
-            className={`ml-4 mb-2 tracking-[0.3em] font-bold ${
-              turn ? "text-cyan-400 animate-pulse" : "text-gray-600"
+          <Box
+            className={`mx-4 mb-4 py-2 px-4 border-l-4 flex items-center justify-between transition-all duration-500 ${
+              turn
+                ? "border-cyan-400 bg-cyan-950/30 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                : "border-red-600 bg-red-950/20 shadow-[0_0_15px_rgba(220,38,38,0.1)]"
             }`}
           >
-            {turn ? ">> LƯỢT TẤN CÔNG <<" : ">> ĐỢI CHỈ THỊ ĐỊCH <<"}
-          </Text>
+            <Box className="flex items-center gap-2">
+              {/* Icon nhấp nháy */}
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  turn ? "bg-cyan-400 animate-pulse" : "bg-red-600"
+                }`}
+              />
+
+              <Text
+                size="xSmall"
+                className={`tracking-[0.2em] font-black ${
+                  turn ? "text-cyan-400" : "text-red-500"
+                }`}
+              >
+                {turn ? "QUYỀN TẤN CÔNG" : "ĐỊCH TẬP KÍCH"}
+              </Text>
+            </Box>
+          </Box>
           <GameGrid type="enemy" onCellClick={handleAttackEnemy} />
         </Box>
-
-        {!inBattle && (
-          <Box
-            className={`combat-section mt-4 ${
-              draggingShip ? "scale-95 opacity-30" : ""
-            }`}
-          >
-            <ShipDock />
-          </Box>
-        )}
 
         {/* LƯỚI HẠM ĐỘI NHÀ */}
         <Box className={`combat-section ${inBattle ? "mt-4" : "mt-6"}`}>
           <ShipStatusHeader />
+          {!inBattle && (
+            <Box
+              className={`combat-section mt-4 ${
+                draggingShip ? "scale-95 opacity-30" : ""
+              }`}
+            >
+              <ShipDock />
+            </Box>
+          )}
           <div className="mt-4 relative flex justify-center">
             <GameGrid type="home" />
           </div>
@@ -394,12 +411,13 @@ const CombatPage: React.FC = () => {
         {/* NÚT ĐIỀU KHIỂN */}
         <Box className="px-4 mt-10">
           {!inBattle ? (
-            <div className="flex flex-col gap-3">
+            <Box className="flex flex-col gap-3">
               <Button
                 fullWidth
                 variant="secondary"
                 className="border-cyan-500 text-cyan-500"
                 onClick={autoPlaceShips}
+                disabled={isReadySent}
               >
                 DÀN TRẬN NGẪU NHIÊN
               </Button>
@@ -416,7 +434,7 @@ const CombatPage: React.FC = () => {
               >
                 {isReadySent ? "ĐANG ĐỢI ĐỐI THỦ..." : "XÁC NHẬN TRIỂN KHAI"}
               </Button>
-            </div>
+            </Box>
           ) : (
             <Button
               fullWidth
@@ -430,7 +448,7 @@ const CombatPage: React.FC = () => {
         </Box>
 
         {/* DEBUG PANEL */}
-        <Box className="mt-20 p-4 border-t border-red-500/20 bg-red-950/5">
+        {/* <Box className="mt-20 p-4 border-t border-red-500/20 bg-red-950/5">
           <Text className="text-red-500/40 text-[9px] font-black text-center mb-2">
             DEBUG: VỆ TINH SOI ĐỊCH
           </Text>
@@ -463,43 +481,28 @@ const CombatPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </Box>
+        </Box> */}
       </Box>
 
       {/* MODAL KẾT THÚC (Tích hợp trạng thái dọn dẹp) */}
       <Modal
-        visible={!!winner}
+        actions={[
+          {
+            close: true,
+            highLight: true,
+            text: "QUAY LẠI CĂN CỨ",
+          },
+        ]}
+        description={
+          winner === "player"
+            ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH!"
+            : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI."
+        }
         title={winner === "player" ? "VICTORY" : "DEFEAT"}
-      >
-        <Box className="p-6 text-center bg-[#0a1a29]">
-          <Text
-            className={
-              winner === "player" ? "text-cyan-400 font-black" : "text-red-500"
-            }
-          >
-            {winner === "player"
-              ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH!"
-              : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI."}
-          </Text>
-
-          <Box className="mt-4 py-2 border-t border-cyan-900/30">
-            {isFinishing && (
-              <Text size="xxSmall" className="text-cyan-600 animate-pulse">
-                ĐANG LƯU DỮ LIỆU CHIẾN TRƯỜNG...
-              </Text>
-            )}
-          </Box>
-
-          <Button
-            fullWidth
-            disabled={isFinishing}
-            className={`mt-8 ${isFinishing ? "bg-gray-700" : "bg-cyan-500"}`}
-            onClick={handleEndSession}
-          >
-            QUAY LẠI CĂN CỨ
-          </Button>
-        </Box>
-      </Modal>
+        visible={!!winner}
+        zIndex={1200}
+        onClose={handleEndSession}
+      />
 
       {isOpponentAway && inBattle && !isGracePeriod && (
         <Box className="absolute inset-0 z-[99] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
