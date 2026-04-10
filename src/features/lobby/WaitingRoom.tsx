@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   Icon,
-  Button,
   useNavigate,
   Box,
   Header,
@@ -14,7 +13,6 @@ import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
 import { generateFakePlayers, getAppUserId } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
-import { useCombatStore } from "@/hooks/useCombatStore";
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();

@@ -9,6 +9,7 @@ import {
   useLocation,
   useSnackbar,
 } from "zmp-ui";
+// import { api } from "zmp-sdk";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
@@ -22,11 +23,13 @@ import BottomNav from "@/components/BottomNav";
 import { ShipDock } from "./components/ShipDock";
 
 import "@/css/children/CombatPage.scss";
+import { GameBoard } from "@/types/supabase/GameBoard";
 
 const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
-  const { saveShipLayout, finishGame, isFinishing } = useSupabase();
+  const { saveShipLayout, finishGame, isFinishing, subscribePresence } =
+    useSupabase();
   const { openSnackbar } = useSnackbar();
 
   const {
@@ -46,13 +49,67 @@ const CombatPage: React.FC = () => {
 
   const [inBattle, setInBattle] = useState(false);
   const [isReadySent, setIsReadySent] = useState(false);
+  const [isOpponentAway, setIsOpponentAway] = useState(false);
+  const [countdown, setCountdown] = useState(20);
+  const [isGracePeriod, setIsGracePeriod] = useState(true);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
-  // const opponentId = state?.opponentId;
-  // const isOnline = state?.isOnline;
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
 
   useEffect(() => {
+    if (inBattle) {
+      const timer = setTimeout(() => setIsGracePeriod(false), 5000); // Đợi 5s cho socket ổn định
+      return () => clearTimeout(timer);
+    }
+    setIsGracePeriod(true);
+    return;
+  }, [inBattle]);
+
+  // useEffect xử lý Presence và Countdown
+  useEffect(() => {
+    if (isBotMode || !gameId || !user || !inBattle) return;
+    const channel = subscribePresence(
+      gameId,
+      user.id,
+      () => setIsOpponentAway(true), // Đối thủ mất kết nối
+      () => {
+        setIsOpponentAway(false);
+        setCountdown(20);
+      }
+    );
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [gameId, user?.id, isBotMode, inBattle]);
+
+  // Logic đếm ngược khi đối thủ vắng mặt
+  // Bước 1: Chỉ làm nhiệm vụ giảm số countdown
+  useEffect(() => {
+    let interval: any;
+    if (inBattle && isOpponentAway && !isBotMode && !isGracePeriod && !winner) {
+      interval = setInterval(() => {
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    } else {
+      setCountdown(20); // Reset nếu đối thủ quay lại hoặc game xong
+    }
+    return () => clearInterval(interval);
+  }, [inBattle, isOpponentAway, isBotMode, isGracePeriod, winner]);
+
+  // Bước 2: Theo dõi countdown chạm 0 để xử thắng (Hết lỗi kẹt countdown)
+  useEffect(() => {
+    if (countdown === 0 && inBattle && isOpponentAway && !winner) {
+      handleAutoWin();
+    }
+  }, [countdown, inBattle, isOpponentAway, winner]);
+
+  useEffect(() => {
+    console.log(
+      "🛠️ Subscribing to Supabase channels...",
+      isBotMode,
+      gameId,
+      user
+    );
     if (isBotMode || !gameId || !user) return;
 
     // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
@@ -85,32 +142,42 @@ const CombatPage: React.FC = () => {
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "game_boards",
-          filter: `game_id=eq.${gameId}`,
+          // filter: `game_id=eq.${gameId}`,
         },
         (payload) => {
-          console.log("⚓ Board Event:", payload.new);
-          if (payload.new.user_id !== user.id && payload.new.is_ready) {
-            setEnemyShips(payload.new.ships_data);
-            // Kiểm tra trực tiếp từ store để tránh closure cũ
-            const currentPlacedShips = useCombatStore.getState().placedShips;
-            if (currentPlacedShips.length === 4) {
-              setInBattle(true);
-              setTurn(true);
-              openSnackbar({ text: "ĐỐI THỦ ĐÃ SẴN SÀNG! CHIẾN!" });
-            }
+          console.log("⚓ Đối thủ cập nhật trạng thái:", payload.new);
+
+          const data = payload.new as GameBoard;
+          // 1. Kiểm tra nếu record đó là của đối thủ và họ đã sẵn sàng
+          if (
+            data.game_id === gameId &&
+            data.user_id !== user.id &&
+            data.is_ready
+          ) {
+            console.log("⚓ Đối thủ đã sẵn sàng:", payload.new);
+
+            setEnemyShips(data.ships_data);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => console.log("📡 Board Channel Status:", status));
 
     return () => {
       supabase.removeChannel(moveChannel);
       supabase.removeChannel(boardChannel);
     };
   }, [gameId, user?.id, isBotMode]); // Chỉ phụ thuộc vào ID cơ bản
+
+  useEffect(() => {
+    if (isReadySent && enemyShips.length > 0 && !inBattle) {
+      setInBattle(true);
+      setTurn(true); // Hoặc logic lượt đi của bạn
+      openSnackbar({ text: "HÀNH QUÂN! ĐỐI THỦ ĐÃ VÀO VỊ TRÍ." });
+    }
+  }, [isReadySent, enemyShips, inBattle]);
 
   // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
   //Thêm useEffect này bên dưới cái Realtime của bạn
@@ -139,6 +206,23 @@ const CombatPage: React.FC = () => {
 
     handleCleanUp();
   }, [winner, gameId]);
+
+  // Hàm xử lý thắng do đối thủ mất kết nối
+  const handleAutoWin = async () => {
+    if (!gameId || !user || isFinishing) return;
+
+    // 1. Thông báo nhanh qua Snackbar
+    openSnackbar({ text: "ĐỐI THỦ MẤT KẾT NỐI. BẠN GIÀNH CHIẾN THẮNG!" });
+
+    try {
+      // Set winner ngay lập tức để hiện Modal
+      useCombatStore.setState({ winner: "player" });
+      // Sau đó mới gọi API lưu kết quả ngầm
+      await finishGame(gameId, user.id);
+    } catch (err) {
+      console.error("Lỗi xử lý thắng tự động:", err);
+    }
+  };
 
   // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
@@ -220,7 +304,7 @@ const CombatPage: React.FC = () => {
     } else {
       const { error } = await saveShipLayout(gameId, user.id, placedShips);
       if (error) {
-        openSnackbar({ text: "Lỗi kết nối vệ tinh!" });
+        openSnackbar({ text: "Lỗi kết nối vệ tinh!", type: "error" });
         return;
       }
 
@@ -236,7 +320,7 @@ const CombatPage: React.FC = () => {
       if (opponent?.is_ready) {
         setEnemyShips(opponent.ships_data);
         setInBattle(true);
-        setTurn(true);
+        setTurn(false);
         openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
       } else {
         openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
@@ -245,8 +329,11 @@ const CombatPage: React.FC = () => {
   };
 
   const handleEndSession = () => {
-    resetShips(); // Clear zustand
-    window.location.reload(); // Hoặc navigate về Home
+    resetShips(); // Cực kỳ quan trọng: reset sạch store trước khi reload
+    // Chờ một chút để store kịp clear rồi mới reload/navigate
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   return (
@@ -396,13 +483,9 @@ const CombatPage: React.FC = () => {
           </Text>
 
           <Box className="mt-4 py-2 border-t border-cyan-900/30">
-            {isFinishing ? (
+            {isFinishing && (
               <Text size="xxSmall" className="text-cyan-600 animate-pulse">
                 ĐANG LƯU DỮ LIỆU CHIẾN TRƯỜNG...
-              </Text>
-            ) : (
-              <Text size="xxSmall" className="text-green-500">
-                DỮ LIỆU ĐÃ ĐƯỢC TỐI ƯU HÓA.
               </Text>
             )}
           </Box>
@@ -417,6 +500,31 @@ const CombatPage: React.FC = () => {
           </Button>
         </Box>
       </Modal>
+
+      {isOpponentAway && inBattle && !isGracePeriod && (
+        <Box className="absolute inset-0 z-[99] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="p-6 border-2 border-red-500 bg-[#061421] rounded-lg text-center shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+            <Text className="text-red-500 font-black animate-pulse mb-2">
+              MẤT TÍN HIỆU ĐỐI THỦ
+            </Text>
+            <Text size="small" className="text-cyan-400">
+              Tự động xử thắng sau:{" "}
+              <span className="text-white text-xl">{countdown}s</span>
+            </Text>
+          </div>
+        </Box>
+      )}
+
+      {/* Hiển thị thông báo nhẹ khi đang trong Grace Period lúc mới vào trận */}
+      {inBattle && isGracePeriod && (
+        <Box className="fixed top-20 left-0 right-0 z-[50] flex justify-center pointer-events-none">
+          <div className="bg-cyan-900/80 px-4 py-1 rounded-full border border-cyan-400">
+            <Text size="xxSmall" className="text-cyan-300 animate-pulse">
+              📡 ĐANG ĐỒNG BỘ TÍN HIỆU CHIẾN TRƯỜNG...
+            </Text>
+          </div>
+        </Box>
+      )}
 
       <BottomNav />
     </Page>

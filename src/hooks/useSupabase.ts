@@ -131,6 +131,39 @@ export const useSupabase = () => {
     }
   };
 
+  const subscribePresence = (
+    gameId: string,
+    userId: string,
+    onOpponentLeft: () => void,
+    onOpponentJoined: () => void
+  ) => {
+    const channel = supabase.channel(`presence_${gameId}`, {
+      config: { presence: { key: userId } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const onlineIds = Object.keys(state);
+
+        // Kiểm tra xem có ai khác ngoài mình không
+        const isOpponentPresent = onlineIds.some((id) => id !== userId);
+
+        if (!isOpponentPresent) {
+          onOpponentLeft();
+        } else {
+          onOpponentJoined();
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return channel;
+  };
+
   // 4. Realtime Subscription (Lắng nghe thay đổi)
   useEffect(() => {
     const channel = supabase
@@ -157,5 +190,6 @@ export const useSupabase = () => {
     deleteRoom,
     saveShipLayout,
     finishGame,
+    subscribePresence,
   };
 };

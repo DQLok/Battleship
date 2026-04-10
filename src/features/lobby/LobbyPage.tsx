@@ -48,12 +48,12 @@ export const LobbyPage = () => {
     const { error } = await deleteRoom(gameId, myId);
     if (error) {
       openSnackbar({
-        message: "Không thể xóa phòng: " + error.message,
+        text: "Không thể xóa phòng: " + error.message,
         type: "error",
       });
     } else {
       openSnackbar({
-        message: "Đã giải tán phòng thành công!",
+        text: "Đã giải tán phòng thành công!",
         type: "success",
       });
       fetchRooms(); // Tải lại danh sách
