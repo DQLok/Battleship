@@ -3,10 +3,13 @@ import {
   Box,
   Button,
   Header,
+  Icon,
   Modal,
   Page,
+  Sheet,
   Text,
   useLocation,
+  useNavigate,
   useSnackbar,
 } from "zmp-ui";
 // import { api } from "zmp-sdk";
@@ -28,6 +31,7 @@ import { GameBoard } from "@/types/supabase/GameBoard";
 const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
+  const navigate = useNavigate();
   const { saveShipLayout, finishGame, isFinishing, subscribePresence } =
     useSupabase();
   const { openSnackbar } = useSnackbar();
@@ -53,6 +57,7 @@ const CombatPage: React.FC = () => {
   const [isOpponentAway, setIsOpponentAway] = useState(false);
   const [countdown, setCountdown] = useState(20);
   const [isGracePeriod, setIsGracePeriod] = useState(true);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
@@ -143,7 +148,6 @@ const CombatPage: React.FC = () => {
           // filter: `game_id=eq.${gameId}`,
         },
         (payload) => {
-
           const data = payload.new as GameBoard;
           // 1. Kiểm tra nếu record đó là của đối thủ và họ đã sẵn sàng
           if (
@@ -196,6 +200,27 @@ const CombatPage: React.FC = () => {
     handleCleanUp();
   }, [winner, gameId]);
 
+  useEffect(() => {
+    // Hàm này sẽ chạy khi user nhấn nút Back của Zalo hoặc nút Back vật lý
+    const handleBackEvent = () => {
+      if (inBattle && !winner) {
+        // Nếu đang trong trận và chưa có kết quả -> Hiện Sheet xác nhận
+        setShowExitConfirm(true);
+        // Giữ người dùng ở lại trang (không cho back thực sự)
+        window.history.pushState(null, "", window.location.href);
+        return false;
+      }
+      return true;
+    };
+
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handleBackEvent);
+
+    return () => {
+      window.removeEventListener("popstate", handleBackEvent);
+    };
+  }, [inBattle, winner]);
+
   // Hàm xử lý thắng do đối thủ mất kết nối
   const handleAutoWin = async () => {
     if (!gameId || !user || isFinishing) return;
@@ -207,7 +232,7 @@ const CombatPage: React.FC = () => {
       // Set winner ngay lập tức để hiện Modal
       useCombatStore.setState({ winner: "player" });
       // Sau đó mới gọi API lưu kết quả ngầm
-      await finishGame(gameId, user.id);
+      await finishGame(gameId, null);
     } catch (err) {
       console.error("Lỗi xử lý thắng tự động:", err);
     }
@@ -334,6 +359,11 @@ const CombatPage: React.FC = () => {
         title={inBattle ? "CHIẾN DỊCH" : "DÀN TRẬN"}
         textColor="#22d3ee"
         backgroundColor="#061421"
+        // Nếu đang trong trận, ẩn nút back mặc định, buộc dùng nút Rút quân hoặc nút vật lý
+        showBackIcon={!inBattle}
+        onBackClick={() => {
+          setShowExitConfirm(true);
+        }}
       />
 
       <Box className="combat-main-content pb-32">
@@ -490,6 +520,63 @@ const CombatPage: React.FC = () => {
         zIndex={1200}
         onClose={handleEndSession}
       />
+
+      <Sheet
+        visible={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        autoHeight
+        mask
+        handler
+        swipeToClose
+      >
+        <Box p={4} className="bg-[#061421]">
+          <Box mb={4} flex flexDirection="column" alignItems="center">
+            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mb-2">
+              <Icon icon="zi-warning-solid" className="text-red-500" />
+            </div>
+            <Text.Title className="text-red-500 font-black">
+              CẢNH BÁO
+            </Text.Title>
+          </Box>
+
+          <Box mb={6}>
+            <Text className="text-cyan-400 text-center">
+              Chỉ huy rút lui sẽ bị coi là
+              <span className="text-red-500 font-bold"> TỰ HỦY </span>
+              và chiến dịch{" "}
+              <span className="text-red-500 font-bold">THẤT BẠI</span>.
+            </Text>
+          </Box>
+
+          <Box flex flexDirection="row">
+            <Button
+              fullWidth
+              variant="secondary"
+              className="border-cyan-500 text-cyan-500"
+              onClick={() => setShowExitConfirm(false)}
+            >
+              CHIẾN ĐẤU
+            </Button>
+            <Button
+              fullWidth
+              type="danger"
+              className="bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]"
+              onClick={async () => {
+                setShowExitConfirm(false);
+                // Gọi logic xử lý thua (Đã có trong hàm handleEndSession/finishGame của bạn)
+                useCombatStore.setState({ winner: "enemy" }); // Địch thắng
+                if (!isBotMode) {
+                  // Truyền rỗng để server hiểu là mình tự thua hoặc truyền ID đối thủ
+                  await finishGame(gameId, null);
+                }
+                handleEndSession();
+              }}
+            >
+              NHẬN THUA
+            </Button>
+          </Box>
+        </Box>
+      </Sheet>
 
       {isOpponentAway && inBattle && !isGracePeriod && (
         <Box className="absolute inset-0 z-[99] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">

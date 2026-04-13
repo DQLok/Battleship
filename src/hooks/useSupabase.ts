@@ -96,7 +96,7 @@ export const useSupabase = () => {
     return { data, error };
   };
 
-  const finishGame = async (gameId: string, winnerId: string) => {
+  const finishGame = async (gameId: string, winnerId: string | null) => {
     // Tránh gửi yêu cầu trùng lặp nếu đang xử lý
     if (isFinishing) return false;
 
@@ -104,12 +104,14 @@ export const useSupabase = () => {
     setLoading(true); // Có thể dùng loading chung để hiện Spinner overlay
 
     try {
-      const { error } = await supabase.rpc("finish_game", {
-        p_game_id: gameId,
-        p_winner_id: winnerId,
-      });
+      if (winnerId) {
+        const { error } = await supabase.rpc("finish_game", {
+          p_game_id: gameId,
+          p_winner_id: winnerId,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       openSnackbar({
         text: "Trận đấu kết thúc!",
@@ -171,21 +173,25 @@ export const useSupabase = () => {
       .select("members, ready_members")
       .eq("id", gameId)
       .single();
-  
+
     if (currentGame) {
       // 2. Loại bỏ userId khỏi cả hai mảng
-      const newMembers = (currentGame.members || []).filter((id) => id !== userId);
-      const newReadyMembers = (currentGame.ready_members || []).filter((id) => id !== userId);
-  
+      const newMembers = (currentGame.members || []).filter(
+        (id) => id !== userId
+      );
+      const newReadyMembers = (currentGame.ready_members || []).filter(
+        (id) => id !== userId
+      );
+
       // 3. Cập nhật lại Database
       const { error } = await supabase
         .from("games")
-        .update({ 
-          members: newMembers, 
-          ready_members: newReadyMembers 
+        .update({
+          members: newMembers,
+          ready_members: newReadyMembers,
         })
         .eq("id", gameId);
-  
+
       if (error) console.error("Lỗi khi xóa người chơi:", error.message);
     }
   };
@@ -217,6 +223,6 @@ export const useSupabase = () => {
     saveShipLayout,
     finishGame,
     subscribePresence,
-    handleRemoveMemberFromDB
+    handleRemoveMemberFromDB,
   };
 };
