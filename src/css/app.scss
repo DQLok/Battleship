@@ -12,6 +12,8 @@ body {
   font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
   padding-bottom: env(safe-area-inset-bottom);
+  --inset-top: var(--zaui-safe-area-inset-top, 0px);
+  --inset-bottom: var(--zaui-safe-area-inset-bottom, 0px);
 }
 
 /* app.scss */

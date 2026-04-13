@@ -14,18 +14,17 @@ const HomePage: React.FC = () => {
         backgroundColor="#061421"
         showBackIcon={false}
       />
-      {/* Header - Class .header đã có trong SCSS */}
-      <Box className="header">
-        <CombatHeader />
-      </Box>
 
       {/* Main Content - Áp dụng .main-section */}
       <Box className="main-section">
+        <CombatHeader />
+
         {/* Daily Reward - Áp dụng .daily-reward-box */}
         <motion.div
-          initial={{ x: -100, opacity: 0 }}
+          initial={{ x: -50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="daily-reward-box z-40 max-w-[220px]"
+          transition={{ delay: 0.5 }}
+          className="daily-reward-box absolute top-[18%] left-4 z-50 w-[50%]"
         >
           <Box className="flex items-center gap-2 mb-1">
             <Box className="font-headline text-[10px] font-bold tracking-widest uppercase">

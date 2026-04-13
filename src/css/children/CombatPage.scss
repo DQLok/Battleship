@@ -1,6 +1,6 @@
 .combat-page {
   // Tránh dùng padding-bottom quá lớn (500px) vì nó làm hỏng layout scroll
-  @apply w-full h-screen flex flex-col pt-16 bg-[#061421] overflow-hidden;
+  @apply w-full h-screen flex flex-col bg-[#061421] overflow-hidden pt-[var(--inset-top)] pb-[var(--inset-bottom)];
 
   .combat-main-content {
     // flex-1 để nó chiếm toàn bộ khoảng trống giữa Header và BottomNav
@@ -25,11 +25,22 @@
   }
 
   @keyframes target-pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    50% {
+      transform: scale(1.1);
+      opacity: 0.7;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
-  
+
   .animate-pulse-target {
     animation: target-pulse 1.5s infinite ease-in-out;
     border: 2px solid #facc15 !important;

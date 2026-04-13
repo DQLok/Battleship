@@ -176,7 +176,7 @@ export const WaitingRoom = () => {
   }, [gameId, user]);
 
   return (
-    <Page className="min-h-screen pt-20 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden">
+    <Page className="min-h-screen pt-24 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden">
       {/* Header */}
       <Header
         title="BATTLE LOBBY"

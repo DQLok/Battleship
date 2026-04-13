@@ -163,13 +163,11 @@ export const LobbyPage = () => {
         </Tabs.Tab>
       </Tabs>
 
-      <Box className="fixed bottom-20 right-6 z-50">
-        <Button
+      <Button
           className="fab-button"
           icon={<Icon icon="zi-plus" />}
           onClick={handleCreate}
         />
-      </Box>
       <BottomNav />
     </Page>
   );

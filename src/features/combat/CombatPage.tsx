@@ -336,6 +336,7 @@ const CombatPage: React.FC = () => {
     // setTimeout(() => {
     // window.location.reload();
     // }, 100);
+    setInBattle(false);
   };
 
   return (
@@ -353,7 +354,7 @@ const CombatPage: React.FC = () => {
       <Box className="combat-main-content pb-32">
         <Box className="flex items-center justify-between mb-4">
           <Text size="small" className="text-cyan-400">
-            Room: {game?.room_name}
+            Room: {isBotMode ? "Bot" : game?.room_name}
           </Text>
         </Box>
         <CombatHeader />
