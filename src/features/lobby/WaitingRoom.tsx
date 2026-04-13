@@ -12,12 +12,14 @@ import {
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
-import { generateFakePlayers, getAppUserId } from "@/utils/user-info";
+import { generateFakePlayers } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
+import { useSupabase } from "@/hooks/useSupabase";
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();
   const { state } = useLocation(); // Giả sử bạn truyền gameId qua đây
+  const { handleRemoveMemberFromDB } = useSupabase();
   const gameId = state?.gameId || "###";
 
   const [game, setGame] = useState<any>(null);
@@ -108,7 +110,6 @@ export const WaitingRoom = () => {
 
   // 1. Fetch dữ liệu phòng và người chơi
   const fetchData = async () => {
-    console.log(gameId + ", " + myId);
     const { data: gameData } = await supabase
       .from("games")
       .select("*")
@@ -116,14 +117,18 @@ export const WaitingRoom = () => {
       .single();
 
     if (gameData) {
-      const fakePlayers = generateFakePlayers(0);
+      // const fakePlayers = generateFakePlayers(0);
       setGame(gameData);
       // Fetch thông tin profile của tất cả members trong mảng
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, username, avatar_url")
         .in("id", gameData.members);
-      if (profiles) setPlayers([...profiles, ...fakePlayers] as Profile[]);
+      if (profiles)
+        setPlayers([
+          ...profiles,
+          // , ...fakePlayers
+        ] as Profile[]);
     }
   };
 
@@ -137,7 +142,9 @@ export const WaitingRoom = () => {
     fetchData();
 
     const channel = supabase
-      .channel(`lobby-${gameId}`)
+      .channel(`lobby-${gameId}`, {
+        config: { presence: { key: user.id } },
+      })
       .on(
         "postgres_changes",
         {
@@ -159,8 +166,11 @@ export const WaitingRoom = () => {
 
             if (profiles) {
               // Kết hợp với bot (nếu bạn vẫn dùng bot để test)
-              const fakePlayers = generateFakePlayers(6);
-              setPlayers([...profiles, ...fakePlayers] as Profile[]);
+              // const fakePlayers = generateFakePlayers(6);
+              setPlayers([
+                ...profiles,
+                // , ...fakePlayers
+              ] as Profile[]);
             }
           }
 
@@ -169,12 +179,28 @@ export const WaitingRoom = () => {
           }
         }
       )
+      // --- THÊM LOGIC PRESENCE TẠI ĐÂY ---
+      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+        if (game.host_id !== myId) {
+          handleRemoveMemberFromDB(myId, gameId);
+        }
+      })
       .subscribe();
 
     return () => {
+      onLeaveRoom();
       supabase.removeChannel(channel);
     };
   }, [gameId, user]);
+
+  const onLeaveRoom = async () => {
+    if (!user) return;
+    if (myId && gameId !== "###") {
+      if (game?.host_id !== myId) {
+        await handleRemoveMemberFromDB(myId, gameId);
+      }
+    }
+  };
 
   return (
     <Page className="min-h-screen pt-24 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden">
@@ -183,6 +209,10 @@ export const WaitingRoom = () => {
         title="BATTLE LOBBY"
         textColor="#22d3ee"
         backgroundColor="#061421"
+        onBackClick={async () => {
+          await onLeaveRoom();
+          navigate(-1);
+        }}
       />
       {/* Room ID Box */}
       <Box className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
@@ -318,7 +348,7 @@ const renderTeamSlots = (
   teamType: "alpha" | "bravo",
   game: any,
   myId: string,
-  maxSlots: number // Nhận tham số động
+  maxSlots: number // Nhận tham số động,
 ) => {
   const slots: React.ReactNode[] = [];
 

@@ -1,11 +1,12 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Box, Header, Page, Text } from "zmp-ui";
+import { Box, Header, Page, Text, useNavigate } from "zmp-ui";
 import "@/css/children/HomePage.scss";
 import CombatHeader from "@/components/CombatHeader";
 import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <Page className="home-page" hideScrollbar>
       <Header
@@ -24,7 +25,7 @@ const HomePage: React.FC = () => {
           initial={{ x: -50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="daily-reward-box absolute top-[18%] left-4 z-50 w-[50%]"
+          className="daily-reward-box absolute top-[20%] left-4 z-50 w-[50%]"
         >
           <Box className="flex items-center gap-2 mb-1">
             <Box className="font-headline text-[10px] font-bold tracking-widest uppercase">
@@ -84,6 +85,9 @@ const HomePage: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="btn-primary-combat group relative w-full py-4 rounded-sm overflow-hidden transition-all"
+            onClick={() => {
+              navigate("/lobby");
+            }}
           >
             <Box className="relative flex items-center justify-center gap-3">
               <Zap className="w-6 h-6 fill-primary" />
@@ -91,7 +95,6 @@ const HomePage: React.FC = () => {
                 Bắt đầu Chiến đấu
               </Box>
             </Box>
-            {/* Corner Accents */}
             <Box className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-primary" />
             <Box className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-primary" />
           </motion.button>

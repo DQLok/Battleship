@@ -322,7 +322,6 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   recordMove: (userId, x, y, isHit, currentUserId, sunkShipName) => {
     const { user, isBotMode, turn, winner } = get();
     if (winner) return;
-    console.log("recordMove", userId, x, y, isHit, currentUserId);
 
     const status = isHit ? "hit" : "miss";
     const isOpponentMove = userId !== currentUserId;
@@ -417,9 +416,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     get().checkGameOver();
 
     const stateAfter = get();
-    console.log("stateAfter", stateAfter, stateAfter.turn, stateAfter.winner, isBotMode);
     if (isBotMode && !stateAfter.turn && !stateAfter.winner) {
-      console.log("Bot turn");
       get().botTurnAction();
     }
   },

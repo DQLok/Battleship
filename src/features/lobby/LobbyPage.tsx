@@ -8,6 +8,7 @@ import {
   Header,
   useSnackbar,
   useNavigate,
+  Text,
 } from "zmp-ui";
 import "@/css/children/LobbyPage.scss";
 import { useSupabase } from "@/hooks/useSupabase";
@@ -62,7 +63,6 @@ export const LobbyPage = () => {
   };
 
   const handleJoin = async (gameId: string, game: Game) => {
-    console.log("Joining room:", gameId);
     if (!gameId || !game) return;
     const isBotMode = gameId === "###";
     initGame(game, user, isBotMode);

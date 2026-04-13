@@ -164,6 +164,32 @@ export const useSupabase = () => {
     return channel;
   };
 
+  const handleRemoveMemberFromDB = async (userId, gameId) => {
+    // 1. Lấy dữ liệu hiện tại của game
+    const { data: currentGame } = await supabase
+      .from("games")
+      .select("members, ready_members")
+      .eq("id", gameId)
+      .single();
+  
+    if (currentGame) {
+      // 2. Loại bỏ userId khỏi cả hai mảng
+      const newMembers = (currentGame.members || []).filter((id) => id !== userId);
+      const newReadyMembers = (currentGame.ready_members || []).filter((id) => id !== userId);
+  
+      // 3. Cập nhật lại Database
+      const { error } = await supabase
+        .from("games")
+        .update({ 
+          members: newMembers, 
+          ready_members: newReadyMembers 
+        })
+        .eq("id", gameId);
+  
+      if (error) console.error("Lỗi khi xóa người chơi:", error.message);
+    }
+  };
+
   // 4. Realtime Subscription (Lắng nghe thay đổi)
   useEffect(() => {
     const channel = supabase
@@ -191,5 +217,6 @@ export const useSupabase = () => {
     saveShipLayout,
     finishGame,
     subscribePresence,
+    handleRemoveMemberFromDB
   };
 };

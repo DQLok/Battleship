@@ -105,12 +105,6 @@ const CombatPage: React.FC = () => {
   }, [countdown, inBattle, isOpponentAway, winner]);
 
   useEffect(() => {
-    console.log(
-      "🛠️ Subscribing to Supabase channels...",
-      isBotMode,
-      gameId,
-      user
-    );
     if (isBotMode || !gameId || !user) return;
 
     // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
@@ -149,7 +143,6 @@ const CombatPage: React.FC = () => {
           // filter: `game_id=eq.${gameId}`,
         },
         (payload) => {
-          console.log("⚓ Đối thủ cập nhật trạng thái:", payload.new);
 
           const data = payload.new as GameBoard;
           // 1. Kiểm tra nếu record đó là của đối thủ và họ đã sẵn sàng
@@ -158,13 +151,11 @@ const CombatPage: React.FC = () => {
             data.user_id !== user.id &&
             data.is_ready
           ) {
-            console.log("⚓ Đối thủ đã sẵn sàng:", payload.new);
-
             setEnemyShips(data.ships_data);
           }
         }
       )
-      .subscribe((status) => console.log("📡 Board Channel Status:", status));
+      .subscribe();
 
     return () => {
       supabase.removeChannel(moveChannel);
@@ -196,9 +187,6 @@ const CombatPage: React.FC = () => {
           const winnerId = winner === "player" ? user?.id : ""; //opponentId;
 
           if (winnerId) {
-            console.log(
-              "🛠️ Đang dọn dẹp dữ liệu trận đấu và cập nhật Profile..."
-            );
             await finishGame(gameId, winnerId);
           }
         }
@@ -230,7 +218,6 @@ const CombatPage: React.FC = () => {
     if (!inBattle || !turn || !user || isFinishing) return;
 
     if (isBotMode) {
-      console.log("[Player] Tấn công", x, y);
       // --- CHẾ ĐỘ BOT ---
       // 1. Kiểm tra xem ô (x,y) đã bắn chưa (tránh bắn lại ô cũ)
       if (useCombatStore.getState().enemyGrid[y][x] !== "empty") return;
@@ -265,7 +252,6 @@ const CombatPage: React.FC = () => {
         });
         if (isSunk) sunkName = hitShip.name;
       }
-      console.log(`[Bot] Tấn công ${x},${y} -> ${hitShip ? "hit" : "miss"}`);
 
       // 4. Ghi nhận nước đi vào Store (userId khác currentUserId để xác định phe bắn)
       recordMove(
@@ -291,7 +277,6 @@ const CombatPage: React.FC = () => {
   // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
   const handleStartBattle = async () => {
     if (!isReadyToStart || !user) return;
-    console.log("[Player] BẮT ĐẦU CHIẾN DỊCH", isBotMode);
 
     if (isBotMode) {
       // 1. Tạo đội hình ngẫu nhiên cho Bot

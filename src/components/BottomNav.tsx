@@ -1,5 +1,4 @@
-import { BottomNavigation, Icon } from "zmp-ui";
-import { useNavigate, useLocation } from "react-router-dom";
+import { BottomNavigation, Icon, useLocation, useNavigate } from "zmp-ui";
 
 export default function BottomNav() {
   const navigate = useNavigate();
@@ -10,8 +9,8 @@ export default function BottomNav() {
 
   const navItems = [
     { path: "/", label: "Home", icon: "zi-group-solid" },
-    { path: "/match", label: "Match", icon: "zi-user-search" },
-    { path: "/combat", label: "Combat", icon: "zi-drag-indicator-solid" },
+    // { path: "/match", label: "Match", icon: "zi-user-search" },
+    // { path: "/combat", label: "Combat", icon: "zi-drag-indicator-solid" },
     { path: "/lobby", label: "Lobby", icon: "zi-more-diamond-solid" },
   ];
 
