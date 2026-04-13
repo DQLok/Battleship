@@ -291,6 +291,7 @@ const CombatPage: React.FC = () => {
   // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
   const handleStartBattle = async () => {
     if (!isReadyToStart || !user) return;
+    console.log("[Player] BẮT ĐẦU CHIẾN DỊCH", isBotMode);
 
     if (isBotMode) {
       // 1. Tạo đội hình ngẫu nhiên cho Bot
@@ -332,9 +333,9 @@ const CombatPage: React.FC = () => {
   const handleEndSession = () => {
     resetShips(); // Cực kỳ quan trọng: reset sạch store trước khi reload
     // Chờ một chút để store kịp clear rồi mới reload/navigate
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    // setTimeout(() => {
+    // window.location.reload();
+    // }, 100);
   };
 
   return (
@@ -440,7 +441,7 @@ const CombatPage: React.FC = () => {
               fullWidth
               variant="secondary"
               className="mt-4 text-red-900/50 text-[9px] border-none"
-              onClick={() => window.location.reload()}
+              onClick={handleEndSession}
             >
               RÚT QUÂN (SURRENDER)
             </Button>

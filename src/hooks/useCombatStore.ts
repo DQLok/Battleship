@@ -295,9 +295,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   resetShips: () => {
     set({
-      placedShips: [],
+      isBotMode: false,
       playerGrid: createEmptyGrid(),
       enemyGrid: createEmptyGrid(),
+      placedShips: [],            
       lastPlayerAttack: null,
       lastBotAttack: null,
       winner: null,
@@ -305,8 +306,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       sunkShipsData: [],
       isProcessing: false,
       draggingShip: null,
-      turn: true,
-      isBotMode: false,
+      turn: true,      
     });
   },
 
