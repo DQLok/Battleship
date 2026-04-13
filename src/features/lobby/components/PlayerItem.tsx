@@ -7,6 +7,7 @@ export const PlayerItem = ({
   role,
   teamColor = "border-cyan-400",
   index,
+  ready,
 }: any) => (
   <Box className="relative group">
     <Box
@@ -42,11 +43,11 @@ export const PlayerItem = ({
           </Box>
         </Box>
       </Box>
-      <div>
-        {player.id === game?.host_id && (
+      <Box>
+        {(player.id === game?.host_id || ready) && (
           <Icon icon="zi-check-circle" className="text-cyan-500" />
         )}
-      </div>
+      </Box>
     </Box>
   </Box>
 );

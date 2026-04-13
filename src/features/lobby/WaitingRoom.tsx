@@ -7,6 +7,7 @@ import {
   Page,
   useSnackbar,
   useLocation,
+  Text,
 } from "zmp-ui";
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
@@ -29,7 +30,7 @@ export const WaitingRoom = () => {
   const toggleGameMode = async () => {
     if (game?.host_id !== myId) return;
 
-    const nextMode = game.game_mode === "1vs1" ? "team" : "1vs1";
+    const nextMode = game.game_mode === "1vs1" ? "1vs1" : "team";
 
     if (nextMode === "team") {
       openSnackbar({
@@ -184,58 +185,60 @@ export const WaitingRoom = () => {
         backgroundColor="#061421"
       />
       {/* Room ID Box */}
-      <div className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
-        <div>
-          <p className="text-[10px] text-cyan-700 uppercase">Command Deck</p>
-          <p className="text-xl font-bold">
+      <Box className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
+        <Box>
+          <Text className="text-[10px] text-cyan-700 uppercase">
+            Command Deck
+          </Text>
+          <Text className="text-xl font-bold">
             #{game?.id?.slice(0, 4).toUpperCase() || "1234"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 bg-[#0A323B] px-3 py-1 rounded-full border border-cyan-500/30">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs uppercase">
+          </Text>
+        </Box>
+        <Box className="flex items-center gap-2 bg-[#0A323B] px-3 py-1 rounded-full border border-cyan-500/30">
+          <Box className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <Box className="text-xs uppercase">
             {game?.game_mode === "1vs1" ? "Duel (1vs1)" : "Tactical (Teams)"}
-          </span>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
 
       {/* NEW: Mode Selection (Chỉ dành cho Host) */}
       {game?.host_id === myId && (
-        <div className="flex gap-2 mb-6">
-          <button
+        <Box className="flex gap-2 mb-6">
+          <Box
             onClick={toggleGameMode}
-            className={`flex-1 py-2 text-[10px] border transition-all ${
+            className={`flex flex-1 py-2 text-[10px] border transition-all justify-center items-center ${
               game?.game_mode === "1vs1"
                 ? "bg-cyan-400 text-black border-cyan-400"
                 : "border-cyan-900 text-cyan-900"
             }`}
           >
             SINGLE DUEL (1VS1)
-          </button>
-          <button
+          </Box>
+          <Box
             onClick={toggleGameMode}
-            className={`flex-1 py-2 text-[10px] border transition-all ${
+            className={`flex flex-1 py-2 text-[10px] border transition-all justify-center items-center ${
               game?.game_mode === "team"
                 ? "bg-cyan-400 text-black border-cyan-400"
                 : "border-cyan-900 text-cyan-900"
             }`}
           >
             TEAM BATTLE (4VS4)
-          </button>
-        </div>
+          </Box>
+        </Box>
       )}
 
       {/* Team Section */}
       <Box className="flex-1 z-10 overflow-y-auto pr-1 no-scrollbar space-y-8">
         {/* --- TEAM ALPHA (Luôn hiển thị) --- */}
         <Box>
-          <div className="flex justify-between items-center mb-4 border-b border-cyan-900 pb-1">
-            <h2 className="text-sm font-bold flex items-center gap-2">
+          <Box className="flex justify-between items-center mb-4 border-b border-cyan-900 pb-1">
+            <Box className="text-sm font-bold flex items-center gap-2">
               <Icon icon="zi-group" />{" "}
               {game?.game_mode === "1vs1" ? "PLAYER 1" : "TEAM ALPHA"}
-            </h2>
-          </div>
-          <div className="space-y-3">
+            </Box>
+          </Box>
+          <Box className="space-y-3">
             {renderTeamSlots(
               players.slice(0, game?.game_mode === "1vs1" ? 1 : 4),
               "alpha",
@@ -243,18 +246,18 @@ export const WaitingRoom = () => {
               myId,
               game?.game_mode === "1vs1" ? 1 : 4 // Số slot tối đa
             )}
-          </div>
+          </Box>
         </Box>
 
         {/* --- TEAM BRAVO (Chỉ hiển thị slot 1 nếu là 1vs1) --- */}
         <Box>
-          <div className="flex justify-between items-center mb-4 border-b border-red-900/50 pb-1">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-red-400">
+          <Box className="flex justify-between items-center mb-4 border-b border-red-900/50 pb-1">
+            <Box className="text-sm font-bold flex items-center gap-2 text-red-400">
               <Icon icon="zi-group" />{" "}
               {game?.game_mode === "1vs1" ? "PLAYER 2" : "TEAM BRAVO"}
-            </h2>
-          </div>
-          <div className="space-y-3">
+            </Box>
+          </Box>
+          <Box className="space-y-3">
             {/* Logic BRAVO: 
                 - 1vs1: Lấy người chơi thứ 2 (index 1), tối đa 1 slot
                 - Team: Lấy từ người chơi thứ 5 (index 4), tối đa 4 slot 
@@ -268,17 +271,13 @@ export const WaitingRoom = () => {
               myId,
               game?.game_mode === "1vs1" ? 1 : 4
             )}
-          </div>
+          </Box>
         </Box>
       </Box>
 
       {/* Footer Actions */}
-      <div className="mt-auto flex gap-4 pt-6 z-10">
-        <button className="p-4 border border-cyan-500 bg-[#0A262E] text-cyan-400">
-          <Icon icon="zi-chat" />
-        </button>
-
-        <button
+      <Box className="mt-auto flex gap-4 pt-6 z-10">
+        <Box
           onClick={handleAction}
           disabled={game?.host_id === myId && !isAllReady}
           className={`flex-1 font-black py-4 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-tighter
@@ -308,12 +307,8 @@ export const WaitingRoom = () => {
             : (game?.ready_members || []).includes(myId)
             ? "HỦY SẴN SÀNG"
             : "SẴN SÀNG"}
-        </button>
-
-        <button className="p-4 border border-cyan-500 bg-[#0A262E] text-cyan-400">
-          <Icon icon="zi-share" />
-        </button>
-      </div>
+        </Box>
+      </Box>
     </Page>
   );
 };
@@ -340,19 +335,20 @@ const renderTeamSlots = (
             teamType === "alpha" ? "border-cyan-400" : "border-red-500"
           }
           index={i}
+          ready={(game?.ready_members || []).includes(teamPlayers[i].id)}
         />
       );
     } else {
       slots.push(
-        <div key={`empty-${teamType}-${i}`} className="relative group">
-          <div
+        <Box key={`empty-${teamType}-${i}`} className="relative group">
+          <Box
             className={`flex items-center justify-between p-3 bg-slate-900/10 border-l-4 border-dashed ${
               teamType === "alpha" ? "border-cyan-900/30" : "border-red-900/30"
             } opacity-40`}
           >
             {/* ... Nội dung slot trống giữ nguyên */}
-          </div>
-        </div>
+          </Box>
+        </Box>
       );
     }
   }
