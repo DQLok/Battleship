@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -32,7 +32,7 @@ const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { saveShipLayout, finishGame, isFinishing, subscribePresence } =
+  const { saveShipLayout, finishGame, isFinishing, subscribePresence, leaveBattle } =
     useSupabase();
   const { openSnackbar } = useSnackbar();
 
@@ -58,9 +58,74 @@ const CombatPage: React.FC = () => {
   const [countdown, setCountdown] = useState(20);
   const [isGracePeriod, setIsGracePeriod] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [serverGame, setServerGame] = useState<any>(null);
+  const leavingSelfRef = useRef(false);
+  const lastGameSnapshotRef = useRef<any>(null);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
+
+  // Lắng nghe trạng thái game để điều hướng khi phòng bị reset về waiting
+  useEffect(() => {
+    if (!gameId || !user || isBotMode) return;
+
+    const gameChannel = supabase
+      .channel(`game_${gameId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` },
+        (payload) => {
+          const updated = payload.new as any;
+          const prev = lastGameSnapshotRef.current;
+          setServerGame(updated);
+          lastGameSnapshotRef.current = updated;
+
+          // Host sees snackbar when opponent leaves (room resets to waiting),
+          // but not when host initiated the leave.
+          if (
+            updated?.status === "waiting" &&
+            prev?.status === "playing" &&
+            user.id === updated?.host_id &&
+            !leavingSelfRef.current
+          ) {
+            const prevMembers: string[] = prev?.members || [];
+            const nextMembers: string[] = updated?.members || [];
+            const someoneLeft = nextMembers.length < prevMembers.length;
+            if (someoneLeft) {
+              openSnackbar({
+                text: "Đối thủ đã rời phòng. Quay lại phòng chờ để sẵn sàng lại.",
+              });
+            }
+          }
+
+          // Nếu host reset phòng (host thoát) hoặc member thoát -> phòng về waiting.
+          if (updated?.status === "waiting") {
+            const members: string[] = updated?.members || [];
+            const stillInRoom = members.includes(user.id) || updated?.host_id === user.id;
+            if (stillInRoom) {
+              // Replace history so Back from waiting returns to lobby (not combat)
+              navigate("/waiting", { state: { gameId }, replace: true });
+            } else {
+              navigate("/lobby", { replace: true });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Fetch snapshot ban đầu (phục vụ xác định host khi thoát)
+    (async () => {
+      const { data } = await supabase.from("games").select("*").eq("id", gameId).maybeSingle();
+      if (data) {
+        setServerGame(data);
+        lastGameSnapshotRef.current = data;
+      }
+    })();
+
+    return () => {
+      supabase.removeChannel(gameChannel);
+    };
+  }, [gameId, user?.id, isBotMode]);
 
   useEffect(() => {
     if (inBattle) {
@@ -235,6 +300,37 @@ const CombatPage: React.FC = () => {
       await finishGame(gameId, null);
     } catch (err) {
       console.error("Lỗi xử lý thắng tự động:", err);
+    }
+  };
+
+  const handleLeaveBattle = async () => {
+    if (!gameId || !user) return;
+    if (isBotMode) {
+      resetShips();
+      setInBattle(false);
+      navigate("/lobby");
+      return;
+    }
+
+    const isHost = (serverGame?.host_id && serverGame.host_id === user.id) || false;
+
+    // Rời trận: người rời bị tính 1 trận tham gia.
+    // - Host rời: reset phòng về waiting => tất cả còn lại về waiting.
+    // - Member rời: member về lobby, host/những người còn lại về waiting.
+    try {
+      leavingSelfRef.current = true;
+      await leaveBattle({ gameId, userId: user.id, isHost });
+    } finally {
+      // allow future snackbars for subsequent sessions
+      leavingSelfRef.current = false;
+      resetShips();
+      setInBattle(false);
+      if (isHost) {
+        // Replace history so Back from waiting returns to lobby (not combat)
+        navigate("/waiting", { state: { gameId }, replace: true });
+      } else {
+        navigate("/lobby", { replace: true });
+      }
     }
   };
 
@@ -563,13 +659,7 @@ const CombatPage: React.FC = () => {
               className="bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]"
               onClick={async () => {
                 setShowExitConfirm(false);
-                // Gọi logic xử lý thua (Đã có trong hàm handleEndSession/finishGame của bạn)
-                useCombatStore.setState({ winner: "enemy" }); // Địch thắng
-                if (!isBotMode) {
-                  // Truyền rỗng để server hiểu là mình tự thua hoặc truyền ID đối thủ
-                  await finishGame(gameId, null);
-                }
-                handleEndSession();
+                await handleLeaveBattle();
               }}
             >
               NHẬN THUA

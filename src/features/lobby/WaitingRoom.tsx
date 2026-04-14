@@ -212,7 +212,8 @@ export const WaitingRoom = () => {
         backgroundColor="#061421"
         onBackClick={async () => {
           await onLeaveRoom();
-          navigate(-1);
+          // Ensure Back from waiting goes to lobby, not previous combat entry.
+          navigate("/lobby", { replace: true });
         }}
       />
       {/* Room ID Box */}

@@ -1,12 +1,80 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Box, Header, Page, Text, useNavigate } from "zmp-ui";
+import { Avatar, Box, Header, Page, Sheet, Text, useNavigate, useSnackbar } from "zmp-ui";
 import "@/css/children/HomePage.scss";
 import CombatHeader from "@/components/CombatHeader";
 import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";
+import { supabase } from "@/api/supabaseClient";
+import { useUser } from "@/context/UserContext";
+import { Profile } from "@/types/supabase/Profile";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { openSnackbar } = useSnackbar();
+  const { user } = useUser();
+
+  const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
+  const [myProfile, setMyProfile] = useState<Profile | null>(null);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [loadingMe, setLoadingMe] = useState(false);
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+
+  const myStats = useMemo(() => {
+    const src = myProfile || user;
+    return {
+      wins: src?.wins ?? 0,
+      totalGames: src?.total_games ?? 0,
+    };
+  }, [myProfile, user]);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoadingLeaderboard(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url, wins, total_games, created_at, updated_at")
+          .order("wins", { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setLeaderboard((data || []) as Profile[]);
+      } catch (e: any) {
+        console.error(e);
+        openSnackbar({ text: "Không tải được BXH. Vui lòng thử lại." });
+      } finally {
+        setLoadingLeaderboard(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, []);
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      if (!user?.id) return;
+      setLoadingMe(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url, wins, total_games, created_at, updated_at")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (error) throw error;
+        setMyProfile((data as Profile) || null);
+      } catch (e) {
+        // Best-effort; fallback to `user` from context
+        setMyProfile(null);
+      } finally {
+        setLoadingMe(false);
+      }
+    };
+
+    fetchMe();
+  }, [user?.id]);
+
   return (
     <Page className="home-page" hideScrollbar>
       <Header
@@ -26,6 +94,9 @@ const HomePage: React.FC = () => {
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
           className="daily-reward-box absolute top-[20%] left-4 z-50 w-[50%]"
+          onClick={() =>
+            openSnackbar({ text: "Tính năng phần thưởng hằng ngày đang triển khai." })
+          }
         >
           <Box className="flex items-center gap-2 mb-1">
             <Box className="font-headline text-[10px] font-bold tracking-widest uppercase">
@@ -100,12 +171,123 @@ const HomePage: React.FC = () => {
           </motion.button>
 
           <Box className="grid grid-cols-3 gap-4">
-            <QuickActionButton icon={<BarChart3 />} label="BXH" />
-            <QuickActionButton icon={<Trophy />} label="Thành Tích" />
-            <QuickActionButton icon={<Settings />} label="Cài đặt" />
+            <QuickActionButton
+              icon={<BarChart3 />}
+              label="BXH"
+              onClick={() => setShowLeaderboard(true)}
+            />
+            <QuickActionButton
+              icon={<Trophy />}
+              label="Thành Tích"
+              onClick={() => setShowAchievements(true)}
+            />
+            <QuickActionButton
+              icon={<Settings />}
+              label="Cài đặt"
+              onClick={() => openSnackbar({ text: "Tính năng cài đặt đang triển khai." })}
+            />
           </Box>
         </Box>
       </Box>
+
+      {/* BXH */}
+      <Sheet
+        visible={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        autoHeight
+        mask
+        handler
+        swipeToClose
+      >
+        <Box p={4} className="bg-[#061421]">
+          <Text.Title className="text-cyan-400 font-black">BXH (Top 10 Wins)</Text.Title>
+          <Text size="xSmall" className="text-cyan-700 mt-1">
+            Dữ liệu lấy từ bảng `profiles`, sắp xếp theo `wins` giảm dần.
+          </Text>
+
+          <Box className="mt-4 space-y-2">
+            {loadingLeaderboard ? (
+              <Text className="text-cyan-700 text-sm">Đang tải...</Text>
+            ) : leaderboard.length === 0 ? (
+              <Text className="text-cyan-700 text-sm">Chưa có dữ liệu.</Text>
+            ) : (
+              leaderboard.map((p, idx) => (
+                <Box
+                  key={p.id}
+                  className="flex items-center justify-between p-3 border border-cyan-900/40 bg-cyan-950/10"
+                >
+                  <Box className="flex items-center gap-3">
+                    <Box className="text-cyan-400 font-black w-6 text-center">
+                      {idx + 1}
+                    </Box>
+                    <Avatar src={p.avatar_url || undefined} size={36} />
+                    <Box className="flex flex-col">
+                      <Text className="text-white font-bold text-sm">
+                        {p.username || p.id}
+                      </Text>
+                      <Text className="text-cyan-700 text-[10px] uppercase tracking-widest">
+                        {p.id}
+                      </Text>
+                    </Box>
+                  </Box>
+                  <Box className="text-right">
+                    <Text className="text-cyan-300 font-black">{p.wins ?? 0}</Text>
+                    <Text className="text-cyan-700 text-[10px] uppercase">Wins</Text>
+                  </Box>
+                </Box>
+              ))
+            )}
+          </Box>
+        </Box>
+      </Sheet>
+
+      {/* Thành tích */}
+      <Sheet
+        visible={showAchievements}
+        onClose={() => setShowAchievements(false)}
+        autoHeight
+        mask
+        handler
+        swipeToClose
+      >
+        <Box p={4} className="bg-[#061421]">
+          <Text.Title className="text-cyan-400 font-black">Thành tích</Text.Title>
+          <Text size="xSmall" className="text-cyan-700 mt-1">
+            Thống kê lấy từ `profiles` của bạn.
+          </Text>
+
+          <Box className="mt-4 grid grid-cols-2 gap-3">
+            <Box className="p-4 border border-cyan-900/40 bg-cyan-950/10">
+              <Text className="text-cyan-700 text-[10px] uppercase tracking-widest">
+                Trận tham gia
+              </Text>
+              <Text className="text-white text-2xl font-black mt-1">
+                {loadingMe ? "…" : myStats.totalGames}
+              </Text>
+            </Box>
+            <Box className="p-4 border border-cyan-900/40 bg-cyan-950/10">
+              <Text className="text-cyan-700 text-[10px] uppercase tracking-widest">
+                Trận thắng
+              </Text>
+              <Text className="text-white text-2xl font-black mt-1">
+                {loadingMe ? "…" : myStats.wins}
+              </Text>
+            </Box>
+          </Box>
+
+          <Box className="mt-4">
+            <Box
+              className="p-4 border border-cyan-900/40 bg-cyan-950/10 flex items-center justify-between"
+              onClick={() =>
+                openSnackbar({ text: "Tính năng phần thưởng hằng ngày đang triển khai." })
+              }
+            >
+              <Text className="text-cyan-400 font-bold">Phần thưởng hằng ngày</Text>
+              <Text className="text-cyan-700 text-xs">Đang triển khai</Text>
+            </Box>
+          </Box>
+        </Box>
+      </Sheet>
     </Page>
   );
 };
@@ -114,12 +296,17 @@ const HomePage: React.FC = () => {
 function QuickActionButton({
   icon,
   label,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
-    <Box className="menu-small-btn py-1 flex flex-col items-center gap-2 transition-colors group">
+    <Box
+      className="menu-small-btn py-1 flex flex-col items-center gap-2 transition-colors group"
+      onClick={onClick}
+    >
       <Box className="text-primary/70 group-hover:text-primary transition-colors">
         {icon}
       </Box>

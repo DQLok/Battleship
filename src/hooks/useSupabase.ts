@@ -9,6 +9,26 @@ export const useSupabase = () => {
   const [isFinishing, setIsFinishing] = useState(false);
   const { openSnackbar } = useSnackbar();
 
+  const incrementMyTotalGames = async (userId: string) => {
+    // Best-effort client-side increment.
+    // If you later add a DB RPC for atomic increments, swap implementation here.
+    const { data: profile, error: readErr } = await supabase
+      .from("profiles")
+      .select("total_games")
+      .eq("id", userId)
+      .single();
+
+    if (readErr) return { error: readErr };
+
+    const nextTotal = (profile?.total_games ?? 0) + 1;
+    const { error: writeErr } = await supabase
+      .from("profiles")
+      .update({ total_games: nextTotal })
+      .eq("id", userId);
+
+    return { error: writeErr ?? null };
+  };
+
   // 1. Fetch danh sách phòng
   const fetchRooms = async () => {
     setLoading(true);
@@ -166,6 +186,47 @@ export const useSupabase = () => {
     return channel;
   };
 
+  const resetGameToWaiting = async (gameId: string) => {
+    // Reset trạng thái phòng để quay lại "waiting" và buộc mọi người ready lại.
+    // Đồng thời dọn dữ liệu trận (moves/boards) theo best-effort.
+    const { error: gameErr } = await supabase
+      .from("games")
+      .update({
+        status: "waiting",
+        current_turn: null,
+        winner_id: null,
+        ready_members: [],
+      })
+      .eq("id", gameId);
+
+    // Best-effort cleanup. Nếu RLS không cho phép thì bỏ qua.
+    await supabase.from("moves").delete().eq("game_id", gameId);
+    await supabase.from("game_boards").delete().eq("game_id", gameId);
+
+    return { error: gameErr ?? null };
+  };
+
+  const leaveBattle = async (params: {
+    gameId: string;
+    userId: string;
+    isHost: boolean;
+  }) => {
+    const { gameId, userId, isHost } = params;
+
+    // 1) Người rời luôn bị tính 1 trận tham gia (không cộng win cho ai).
+    await incrementMyTotalGames(userId);
+
+    // 2) Cập nhật phòng tuỳ vai trò
+    if (isHost) {
+      // Host rời: giữ members, reset về waiting để cả phòng quay lại phòng chờ.
+      return await resetGameToWaiting(gameId);
+    }
+
+    // Member rời: remove khỏi phòng, đồng thời reset phòng về waiting cho người còn lại.
+    await handleRemoveMemberFromDB(userId, gameId);
+    return await resetGameToWaiting(gameId);
+  };
+
   const handleRemoveMemberFromDB = async (userId, gameId) => {
     // 1. Lấy dữ liệu hiện tại của game
     const { data: currentGame } = await supabase
@@ -223,6 +284,8 @@ export const useSupabase = () => {
     saveShipLayout,
     finishGame,
     subscribePresence,
+    leaveBattle,
+    resetGameToWaiting,
     handleRemoveMemberFromDB,
   };
 };
