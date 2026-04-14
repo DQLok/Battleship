@@ -1,13 +1,9 @@
 .combat-page {
-  // Tránh dùng padding-bottom quá lớn (500px) vì nó làm hỏng layout scroll
   @apply w-full h-screen flex flex-col bg-[#061421] overflow-hidden pt-[var(--inset-top)] pb-[var(--inset-bottom)];
 
   .combat-main-content {
-    // flex-1 để nó chiếm toàn bộ khoảng trống giữa Header và BottomNav
-    // overflow-y-auto để chỉ cuộn trong vùng này
     @apply flex-1 overflow-y-auto px-4 pt-4 pb-24;
 
-    // Custom thanh cuộn cho ngầu (Optional)
     &::-webkit-scrollbar {
       @apply w-1;
     }
@@ -17,7 +13,6 @@
     }
   }
 
-  // Khi đang kéo tàu, ta khóa scroll để tránh giật lag
   &.dragging-active {
     .combat-main-content {
       @apply overflow-hidden;
@@ -29,12 +24,10 @@
       transform: scale(1);
       opacity: 1;
     }
-
     50% {
       transform: scale(1.1);
       opacity: 0.7;
     }
-
     100% {
       transform: scale(1);
       opacity: 1;
@@ -47,3 +40,4 @@
     box-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
   }
 }
+

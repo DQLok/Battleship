@@ -16,6 +16,7 @@ import { generateFakePlayers } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
 import { useSupabase } from "@/hooks/useSupabase";
 import { renderTeamSlots } from "./components/TeamSlot";
+import "@/css/features/waiting-room.scss";
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();

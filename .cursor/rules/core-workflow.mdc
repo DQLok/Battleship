@@ -20,3 +20,11 @@ alwaysApply: true
 
 - Explain changes with short rationale and impacted files.
 - When blocked, report the blocker and propose the smallest next action.
+
+# Safety
+
+- **[STRICT] NEVER delete any files or directories without explicit user confirmation.**
+- Before proposing a file deletion, you must explain **why** it is necessary and which files will be affected.
+- Avoid destructive git commands (`reset --hard`, force push) unless explicitly requested.
+- If a command could delete many files, ask for confirmation first.
+- Keep secrets out of code and commits (`.env`, tokens, private keys).

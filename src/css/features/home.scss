@@ -1,0 +1,116 @@
+.home-page {
+  @apply w-full h-screen flex-1 flex flex-col overflow-hidden pt-[var(--inset-top)] pb-[var(--inset-bottom)];
+  background-color: var(--bg);
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(34, 211, 238, 0.3);
+
+  .main-section {
+    @apply flex-grow flex flex-col items-center justify-center px-6 relative;
+  }
+
+  .daily-reward-box {
+    @apply p-4 rounded-r-lg;
+    background: rgba(34, 211, 238, 0.05);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-left: 3px solid #22d3ee;
+    box-shadow: 10px 0 20px rgba(0, 0, 0, 0.5);
+    animation: floating 4s ease-in-out infinite;
+  }
+
+  .neon-text {
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(34, 211, 238, 0.3);
+  }
+
+  .radar-container {
+    @apply relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -40px;
+      background: radial-gradient(
+        circle,
+        var(--accent-glow) 0%,
+        transparent 70%
+      );
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .radar-logo {
+      @apply flex items-center justify-center rounded-full;
+      border: 1px solid var(--accent-glow);
+      background: var(--bg-secondary);
+      position: relative;
+      overflow: hidden;
+
+      .corner-decoration {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 20px;
+        height: 20px;
+        border-top: 2px solid var(--accent);
+        border-right: 2px solid var(--accent);
+        opacity: 0.6;
+      }
+    }
+  }
+
+  .btn-primary-combat {
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-glow);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      background: rgba(8, 47, 73, 0.6);
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  .menu-small-btn {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s;
+
+    &:active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+  }
+
+  .radar-scan {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(0, 218, 243, 0.2) 90deg,
+      transparent 91deg
+    );
+  }
+
+  @keyframes scan {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-scan {
+    animation: scan 4s linear infinite;
+  }
+}
+
+.radar-gradient {
+  background: conic-gradient(from 0deg, var(--accent) 0deg, transparent 90deg);
+}
+

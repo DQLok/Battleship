@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Avatar, Box, Header, Page, Sheet, Text, useNavigate, useSnackbar } from "zmp-ui";
-import "@/css/children/HomePage.scss";
+import "@/css/features/home.scss";
 import CombatHeader from "@/components/CombatHeader";
 import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";

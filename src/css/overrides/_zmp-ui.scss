@@ -1,0 +1,119 @@
+/* ZaUI / ZMP-UI visual overrides */
+
+/* Tabs */
+.zmp-tabs,
+.zaui-tabs {
+  background-color: var(--bg) !important;
+
+  .zmp-tabs-nav,
+  .zaui-tabs-nav {
+    background-color: var(--bg) !important;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.1) !important;
+
+    &-container,
+    &-wrap,
+    &-scroll,
+    &-list {
+      background-color: var(--bg) !important;
+    }
+
+    &-item {
+      background-color: transparent !important;
+
+      .zmp-tabs-nav-item-text,
+      .zaui-tabs-nav-item-text,
+      span,
+      div {
+        color: #64748b !important;
+        transition: all 0.3s ease;
+      }
+
+      &[class*="-active"],
+      &.zmp-tabs-nav-item-active,
+      &.zaui-tabs-nav-item-active {
+        background-color: transparent !important;
+
+        .zmp-tabs-nav-item-text,
+        .zaui-tabs-nav-item-text,
+        span,
+        div {
+          color: var(--accent) !important;
+          text-shadow: 0 0 8px var(--accent-glow);
+          font-weight: bold;
+        }
+      }
+    }
+
+    .zmp-tabs-nav-ink-bar,
+    .zaui-tabs-nav-ink-bar {
+      background-color: var(--accent) !important;
+      box-shadow: 0 0 10px var(--accent-glow);
+      height: 2px !important;
+    }
+  }
+
+  .zmp-tabs-content,
+  .zaui-tabs-content {
+    background-color: var(--bg) !important;
+
+    .zmp-tabs-tabpane,
+    .zaui-tabs-tabpane {
+      background-color: var(--bg) !important;
+      color: white;
+    }
+  }
+}
+
+/* Bottom navigation */
+.zmp-bottom-navigation,
+.zaui-bottom-navigation {
+  background-color: var(--bg) !important;
+
+  &,
+  div,
+  span,
+  a {
+    background-color: var(--bg) !important;
+    box-shadow: none !important;
+  }
+
+  .zmp-bottom-navigation-item,
+  .zaui-bottom-navigation-item {
+    &-label {
+      color: #4b5563 !important;
+    }
+
+    &-active,
+    &.zmp-bottom-navigation-item-active,
+    &.zaui-bottom-navigation-item-active {
+      .zmp-bottom-navigation-item-label,
+      .zaui-bottom-navigation-item-label,
+      .zmp-icon,
+      .zaui-icon,
+      svg {
+        color: var(--accent) !important;
+        fill: var(--accent) !important;
+        filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.5));
+      }
+    }
+  }
+}
+
+/* Page/Layout backgrounds */
+.zmp-page,
+.zaui-page,
+.zmp-layout,
+.zaui-layout,
+.page-container {
+  background-color: var(--bg) !important;
+  background: var(--bg) !important;
+}
+
+.page-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+}
+

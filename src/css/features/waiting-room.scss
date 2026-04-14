@@ -1,0 +1,9 @@
+.waiting-page {
+  @apply min-h-screen pt-20 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden;
+
+  padding-top: calc(var(--zaui-safe-area-inset-top, 0px) + var(--header-height));
+  padding-bottom: calc(var(--zaui-safe-area-inset-bottom, 0px) + 16px);
+  padding-left: 16px;
+  padding-right: 16px;
+}
+

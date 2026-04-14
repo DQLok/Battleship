@@ -10,7 +10,7 @@ import {
   useNavigate,
   Text,
 } from "zmp-ui";
-import "@/css/children/LobbyPage.scss";
+import "@/css/features/lobby.scss";
 import { useSupabase } from "@/hooks/useSupabase";
 import RoomCard from "./components/RoomCard";
 import BottomNav from "@/components/BottomNav";

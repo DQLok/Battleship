@@ -25,7 +25,7 @@ import ShipStatusHeader from "./components/ShipStatusHeader";
 import BottomNav from "@/components/BottomNav";
 import { ShipDock } from "./components/ShipDock";
 
-import "@/css/children/CombatPage.scss";
+import "@/css/features/combat.scss";
 import { GameBoard } from "@/types/supabase/GameBoard";
 
 const CombatPage: React.FC = () => {
