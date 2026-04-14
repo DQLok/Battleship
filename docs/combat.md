@@ -53,7 +53,21 @@ Khi vào trận, UI chia làm 2 phần:
   - Với online: `finishGame(gameId, winnerId)` được gọi trong effect cleanup.
 - Khi người chơi back/rời trang lúc đang chiến đấu:
   - Chặn popstate và hiển thị `Sheet` xác nhận “rút quân”.
-  - Nếu chọn “NHẬN THUA”: store set `winner: "enemy"`, (online) gọi `finishGame(..., null)`.
+  - Nếu chọn “NHẬN THUA”: dùng luồng “rời trận” (leave room) theo vai trò host/member.
+
+### 4) Rút quân (Surrender) để mở trận mới (không rời phòng)
+
+Khi đã bắt đầu trận (`inBattle === true`), nút **`RÚT QUÂN (SURRENDER)`** dùng để **đầu hàng và reset trận** để 2 bên sắp xếp lại tàu mở trận mới trong cùng phòng.
+
+- **Không ai rời phòng**.
+- **Cập nhật thành tích**:
+  - Người bấm rút quân (loser): `total_games + 1`
+  - Đối thủ (winner): `wins + 1` và `total_games + 1`
+- **Reset dữ liệu trận**:
+  - dọn `moves` + `game_boards` theo `game_id`
+  - cập nhật `games` về `status: "waiting"`, `ready_members: []`, `current_turn: null`, `winner_id: null`
+- **UI**:
+  - cả hai bên được reset về trạng thái dàn trận ngay trong `CombatPage` (không chuyển trang).
 
 ## Chế độ Online (Supabase Realtime)
 
@@ -168,8 +182,10 @@ Mục tiêu: giảm rủi ro mất dữ liệu khi thao tác trong repo lúc ph�
 
 - Dàn trận:
   - đặt đủ 4 tàu; thử xoay; thử nhấc lên đặt lại; thử auto place.
+  - sau khi “XÁC NHẬN TRIỂN KHAI”: không được xoay/nhấc/đặt lại tàu nữa.
 - Bot mode:
   - bắn trúng/hụt; bot bắn trả; kết thúc trận hiển thị đúng winner.
 - Online:
   - 2 client vào cùng `gameId`; cả hai ready; bắn luân phiên qua realtime.
   - tắt mạng 1 bên để kiểm tra countdown + auto-win sau grace period.
+  - đang giao tranh, 1 bên bấm “RÚT QUÂN”: cả hai reset dàn trận, stats cập nhật đúng.

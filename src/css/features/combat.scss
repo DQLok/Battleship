@@ -2,7 +2,7 @@
   @apply w-full h-screen flex flex-col bg-[#061421] overflow-hidden pt-[var(--inset-top)] pb-[var(--inset-bottom)];
 
   .combat-main-content {
-    @apply flex-1 overflow-y-auto px-4 pt-4 pb-24;
+    @apply flex-1 overflow-y-auto px-4 pt-16 pb-24;
 
     &::-webkit-scrollbar {
       @apply w-1;

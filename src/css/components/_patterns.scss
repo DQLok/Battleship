@@ -1,0 +1,92 @@
+/* Reusable SCSS patterns (placeholders) */
+
+%ui-neon-text {
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+%ui-glass-panel {
+  background: rgba(34, 211, 238, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+%ui-btn-primary-combat {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-glow);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: rgba(8, 47, 73, 0.6);
+    border-color: var(--accent);
+    box-shadow: 0 0 30px var(--accent-glow);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+%ui-menu-small-btn {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s;
+
+  &:active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+}
+
+%ui-fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--inset-bottom) + 100px);
+  z-index: 999;
+
+  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+
+  background: rgba(34, 211, 238, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  color: #22d3ee;
+
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.2),
+    inset 0 0 5px rgba(34, 211, 238, 0.1);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid #22d3ee;
+    animation: ui-fab-ping 2s infinite;
+    opacity: 0;
+  }
+
+  &:active {
+    transform: scale(0.9);
+    background: rgba(34, 211, 238, 0.3);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+}
+
+@keyframes ui-fab-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+

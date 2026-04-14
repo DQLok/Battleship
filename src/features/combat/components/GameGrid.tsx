@@ -7,9 +7,14 @@ const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 interface GameGridProps {
   type: "enemy" | "home";
   onCellClick?: (x: number, y: number) => void;
+  disabledInteraction?: boolean;
 }
 
-const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
+const GameGrid: React.FC<GameGridProps> = ({
+  type,
+  onCellClick,
+  disabledInteraction,
+}) => {
   // 1. Selector tối ưu Re-render
   const displayGrid = useCombatStore((state) =>
     type === "home" ? state.playerGrid : state.enemyGrid
@@ -63,6 +68,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
 
   const handleTouchStart = (x: number, y: number) => {
     if (winner) return;
+    if (disabledInteraction) return;
 
     if (type === "enemy") {
       if (!turn) {
@@ -95,6 +101,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
   };
 
   const handleTouchEnd = (x: number, y: number) => {
+    if (disabledInteraction) return;
     if (type === "home" && !isLongPress && timerRef.current) {
       clearTimeout(timerRef.current);
       rotateShipAt(x, y);
@@ -103,7 +110,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
   };
 
   return (
-    <div className="flex flex-col items-center select-none touch-none">
+    <div className="flex flex-col items-center select-none touch-pan-y">
       {/* Labels A-J */}
       <div className="flex ml-6 mb-1">
         {COL_LABELS.map((l) => (
@@ -177,7 +184,7 @@ const GameGrid: React.FC<GameGridProps> = ({ type, onCellClick }) => {
                 <div
                   key={`${x}-${y}`}
                   onPointerDown={(e) => {
-                    e.preventDefault();
+                    if (disabledInteraction) return;
                     handleTouchStart(x, y);
                   }}
                   onPointerUp={() => handleTouchEnd(x, y)}

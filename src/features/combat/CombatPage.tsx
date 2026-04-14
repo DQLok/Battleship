@@ -32,7 +32,14 @@ const CombatPage: React.FC = () => {
   const { user } = useUser();
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { saveShipLayout, finishGame, isFinishing, subscribePresence, leaveBattle } =
+  const {
+    saveShipLayout,
+    finishGame,
+    isFinishing,
+    subscribePresence,
+    leaveBattle,
+    surrenderAndResetForRematch,
+  } =
     useSupabase();
   const { openSnackbar } = useSnackbar();
 
@@ -61,6 +68,7 @@ const CombatPage: React.FC = () => {
   const [serverGame, setServerGame] = useState<any>(null);
   const leavingSelfRef = useRef(false);
   const lastGameSnapshotRef = useRef<any>(null);
+  const rematchResetRef = useRef(false);
 
   const gameId = state?.gameId || "ROOM_TEST_01";
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
@@ -102,6 +110,27 @@ const CombatPage: React.FC = () => {
           if (updated?.status === "waiting") {
             const members: string[] = updated?.members || [];
             const stillInRoom = members.includes(user.id) || updated?.host_id === user.id;
+
+            // Rematch reset (surrender) case: keep both players on CombatPage, reset local board/placement.
+            // Detect by: still in room AND no one left.
+            const prevMembers: string[] = prev?.members || [];
+            const noOneLeft = members.length === prevMembers.length;
+            if (stillInRoom && prev?.status === "playing" && noOneLeft) {
+              // reset local combat state to allow re-arranging ships
+              resetShips();
+              setEnemyShips([]);
+              setTurn(true);
+              setIsReadySent(false);
+              setInBattle(false);
+              openSnackbar({
+                text: rematchResetRef.current
+                  ? "Đã rút quân. Sắp xếp lại tàu để mở trận mới."
+                  : "Đối thủ đã rút quân. Sắp xếp lại tàu để mở trận mới.",
+              });
+              rematchResetRef.current = false;
+              return;
+            }
+
             if (stillInRoom) {
               // Replace history so Back from waiting returns to lobby (not combat)
               navigate("/waiting", { state: { gameId }, replace: true });
@@ -334,6 +363,29 @@ const CombatPage: React.FC = () => {
     }
   };
 
+  const handleSurrenderForRematch = async () => {
+    if (!gameId || !user) return;
+    if (!inBattle) return;
+    if (isBotMode) {
+      // Bot mode: just reset locally
+      resetShips();
+      setEnemyShips([]);
+      setTurn(true);
+      setIsReadySent(false);
+      setInBattle(false);
+      openSnackbar({ text: "Đã rút quân. Sắp xếp lại tàu để mở trận mới." });
+      return;
+    }
+
+    try {
+      rematchResetRef.current = true;
+      await surrenderAndResetForRematch({ gameId, loserId: user.id });
+    } catch (e) {
+      rematchResetRef.current = false;
+      openSnackbar({ text: "Không thể rút quân lúc này. Vui lòng thử lại." });
+    }
+  };
+
   // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
     if (!inBattle || !turn || !user || isFinishing) return;
@@ -513,11 +565,11 @@ const CombatPage: React.FC = () => {
                 draggingShip ? "scale-95 opacity-30" : ""
               }`}
             >
-              <ShipDock />
+              <ShipDock disabled={isReadySent} />
             </Box>
           )}
           <div className="mt-4 relative flex justify-center">
-            <GameGrid type="home" />
+            <GameGrid type="home" disabledInteraction={isReadySent} />
           </div>
         </Box>
 
@@ -553,7 +605,7 @@ const CombatPage: React.FC = () => {
               fullWidth
               variant="secondary"
               className="mt-4 text-red-900/50 text-[9px] border-none"
-              onClick={handleEndSession}
+              onClick={handleSurrenderForRematch}
             >
               RÚT QUÂN (SURRENDER)
             </Button>
@@ -659,6 +711,7 @@ const CombatPage: React.FC = () => {
               className="bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]"
               onClick={async () => {
                 setShowExitConfirm(false);
+                // Back/exit confirm during battle keeps previous behavior (leave room logic)
                 await handleLeaveBattle();
               }}
             >

@@ -29,6 +29,25 @@ export const useSupabase = () => {
     return { error: writeErr ?? null };
   };
 
+  const incrementWinsAndTotalGames = async (userId: string) => {
+    const { data: profile, error: readErr } = await supabase
+      .from("profiles")
+      .select("wins, total_games")
+      .eq("id", userId)
+      .single();
+
+    if (readErr) return { error: readErr };
+
+    const nextWins = (profile?.wins ?? 0) + 1;
+    const nextTotal = (profile?.total_games ?? 0) + 1;
+    const { error: writeErr } = await supabase
+      .from("profiles")
+      .update({ wins: nextWins, total_games: nextTotal })
+      .eq("id", userId);
+
+    return { error: writeErr ?? null };
+  };
+
   // 1. Fetch danh sách phòng
   const fetchRooms = async () => {
     setLoading(true);
@@ -206,6 +225,37 @@ export const useSupabase = () => {
     return { error: gameErr ?? null };
   };
 
+  const surrenderAndResetForRematch = async (params: {
+    gameId: string;
+    loserId: string;
+  }) => {
+    const { gameId, loserId } = params;
+
+    // 1) Xác định đối thủ trong phòng
+    const { data: gameRow, error: gameErr } = await supabase
+      .from("games")
+      .select("id, host_id, members")
+      .eq("id", gameId)
+      .single();
+
+    if (gameErr) return { error: gameErr, opponentId: null as string | null };
+
+    const members: string[] = gameRow?.members || [];
+    const opponentId = members.find((id) => id !== loserId) || null;
+
+    // 2) Cập nhật thống kê:
+    // - Loser: +1 total_games
+    // - Opponent: +1 wins, +1 total_games
+    await incrementMyTotalGames(loserId);
+    if (opponentId) {
+      await incrementWinsAndTotalGames(opponentId);
+    }
+
+    // 3) Reset dữ liệu trận để sắp xếp lại tàu và chơi trận mới (không ai rời phòng)
+    const resetRes = await resetGameToWaiting(gameId);
+    return { error: resetRes.error, opponentId };
+  };
+
   const leaveBattle = async (params: {
     gameId: string;
     userId: string;
@@ -286,6 +336,7 @@ export const useSupabase = () => {
     subscribePresence,
     leaveBattle,
     resetGameToWaiting,
+    surrenderAndResetForRematch,
     handleRemoveMemberFromDB,
   };
 };

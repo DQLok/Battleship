@@ -1,3 +1,5 @@
+@use "../components/patterns" as *;
+
 .lobby-page {
   @apply w-full h-screen flex flex-col bg-[#061421] overflow-hidden pt-[calc(var(--inset-top)+48px)] pb-[calc(var(--inset-bottom)+48px)];
 
@@ -6,54 +8,7 @@
   }
 
   .fab-button {
-    position: fixed;
-    right: 20px;
-    bottom: calc(var(--inset-bottom) + 100px);
-    z-index: 999;
-
-    border-radius: 12px;
-    width: 50px;
-    height: 50px;
-
-    background: rgba(34, 211, 238, 0.1);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(34, 211, 238, 0.4);
-    color: #22d3ee;
-
-    box-shadow: 0 0 15px rgba(34, 211, 238, 0.2),
-      inset 0 0 5px rgba(34, 211, 238, 0.1);
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-
-    &::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      border: 1px solid #22d3ee;
-      animation: fab-ping 2s infinite;
-      opacity: 0;
-    }
-
-    &:active {
-      transform: scale(0.9);
-      background: rgba(34, 211, 238, 0.3);
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
-    }
-  }
-
-  @keyframes fab-ping {
-    0% {
-      transform: scale(1);
-      opacity: 0.5;
-    }
-    100% {
-      transform: scale(1.5);
-      opacity: 0;
-    }
+    @extend %ui-fab;
   }
 }
 
