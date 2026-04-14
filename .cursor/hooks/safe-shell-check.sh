@@ -25,5 +25,16 @@ if [[ "$command_text" =~ git[[:space:]]+push[[:space:]].*--force ]]; then
   exit 0
 fi
 
+if [[ "$command_text" =~ git[[:space:]]+commit ]]; then
+  # Reminder to keep Grapuco index fresh after code changes.
+  echo '{ "permission": "ask", "user_message": "Before committing: ensure you are not staging .grapuco/ast-cache/**. After committing, run `grapuco push` so Grapuco index/traceability stays up to date." }'
+  exit 0
+fi
+
+if [[ "$command_text" =~ git[[:space:]]+push([[:space:]]|$) ]]; then
+  echo '{ "permission": "ask", "user_message": "Reminder: if you changed code, also run `grapuco push` so .grapuco intelligence stays current." }'
+  exit 0
+fi
+
 echo '{ "permission": "allow" }'
 exit 0

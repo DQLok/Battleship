@@ -36,3 +36,6 @@ Thumbs.db
 
 # Production build
 www/
+
+# Grapuco (code intelligence cache)
+.grapuco/ast-cache/
