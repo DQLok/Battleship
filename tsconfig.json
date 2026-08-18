@@ -15,7 +15,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
@@ -29,7 +29,10 @@
     "resolveJsonModule": true,
     "types": ["vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "zmp-ui": ["./src/compat/zmp-ui.tsx"],
+      "zmp-ui/*": ["./src/compat/zmp-ui.tsx"],
+      "zmp-sdk": ["./src/compat/zmp-sdk.ts"]
     }
   },
   "exclude": ["node_modules"],

@@ -13,7 +13,6 @@ import {
 import "@/css/features/lobby.scss";
 import { useSupabase } from "@/hooks/useSupabase";
 import RoomCard from "./components/RoomCard";
-import BottomNav from "@/components/BottomNav";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
@@ -168,7 +167,6 @@ export const LobbyPage = () => {
           icon={<Icon icon="zi-plus" />}
           onClick={handleCreate}
         />
-      <BottomNav />
     </Page>
   );
 };

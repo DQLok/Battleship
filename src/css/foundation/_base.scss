@@ -1,3 +1,9 @@
+html,
+body,
+#app {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -5,8 +11,14 @@ body {
   -webkit-font-smoothing: antialiased;
   padding-bottom: env(safe-area-inset-bottom);
 
-  --inset-top: var(--zaui-safe-area-inset-top, 0px);
-  --inset-bottom: var(--zaui-safe-area-inset-bottom, 0px);
+  --inset-top: var(
+    --tg-viewport-safe-area-inset-top,
+    var(--tg-safe-area-inset-top, 0px)
+  );
+  --inset-bottom: var(
+    --tg-viewport-safe-area-inset-bottom,
+    var(--tg-safe-area-inset-bottom, 0px)
+  );
 }
 
 /* Hide scrollbars (utility) */

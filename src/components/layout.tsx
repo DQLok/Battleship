@@ -1,15 +1,10 @@
-import { getSystemInfo } from "zmp-sdk";
-import {
-  AnimationRoutes,
-  App,
-  Route,
-  SnackbarProvider,
-  ZMPRouter,
-} from "zmp-ui";
-import { AppProps } from "zmp-ui/app";
-import { UserProvider, useUser } from "@/context/UserContext"; // Import cả 2
+import { useEffect } from "react";
+import { AppRoot } from "@telegram-apps/telegram-ui";
+import { backButton, retrieveLaunchParams } from "@telegram-apps/sdk-react";
+import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
+import { SnackbarProvider } from "zmp-ui";
+import { UserProvider, useUser } from "@/context/UserContext";
 
-// Các màn hình của bạn
 import CombatPage from "@/features/combat/CombatPage";
 import HomePage from "@/features/home/HomePage";
 import VictoryPage from "@/features/result/VictoryPage";
@@ -18,11 +13,32 @@ import { LobbyPage } from "@/features/lobby/LobbyPage";
 import MainLayout from "./MainLayout";
 import { WaitingRoom } from "@/features/lobby/WaitingRoom";
 
+function TelegramBackButton() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      backButton.hide.ifAvailable();
+    } else {
+      backButton.show.ifAvailable();
+    }
+
+    const result = backButton.onClick.ifAvailable(() => {
+      window.history.back();
+    });
+
+    return () => {
+      if (result[0]) result[1]();
+    };
+  }, [location.pathname]);
+
+  return null;
+}
+
 const AppContent = () => {
   const { loading } = useUser();
 
   if (loading) {
-    // Style này giúp màn hình loading khớp với phong cách Cyberpunk của bạn
     return (
       <div
         style={{
@@ -41,29 +57,41 @@ const AppContent = () => {
   }
 
   return (
-    <App theme={getSystemInfo().zaloTheme as AppProps["theme"]}>
-      <SnackbarProvider>
-        <ZMPRouter>
-          <AnimationRoutes>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/combat" element={<CombatPage />} />
-              <Route path="/match" element={<MatchmakingPage />} />
-              <Route path="/lobby" element={<LobbyPage />} />
-            </Route>
-            <Route path="/result" element={<VictoryPage />} />
-            <Route path="/waiting" element={<WaitingRoom />} />
-          </AnimationRoutes>
-        </ZMPRouter>
-      </SnackbarProvider>
-    </App>
+    <SnackbarProvider>
+      <TelegramBackButton />
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/combat" element={<CombatPage />} />
+          <Route path="/match" element={<MatchmakingPage />} />
+          <Route path="/lobby" element={<LobbyPage />} />
+        </Route>
+        <Route path="/result" element={<VictoryPage />} />
+        <Route path="/waiting" element={<WaitingRoom />} />
+      </Routes>
+    </SnackbarProvider>
   );
 };
 
+function telegramPlatform(): "ios" | "base" {
+  try {
+    const { tgWebAppPlatform } = retrieveLaunchParams();
+    return tgWebAppPlatform === "ios" || tgWebAppPlatform === "macos"
+      ? "ios"
+      : "base";
+  } catch {
+    return "base";
+  }
+}
+
 export const Layout = () => (
-  <UserProvider>
-    <AppContent />
-  </UserProvider>
+  <AppRoot appearance="dark" platform={telegramPlatform()} className="h-full">
+    <UserProvider>
+      <HashRouter>
+        <AppContent />
+      </HashRouter>
+    </UserProvider>
+  </AppRoot>
 );
 
 export default Layout;

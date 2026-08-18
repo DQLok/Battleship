@@ -1,23 +1,29 @@
-// ZaUI stylesheet
-import "zmp-ui/zaui.css";
-// Tailwind stylesheet
+import "@telegram-apps/telegram-ui/dist/styles.css";
 import "@/css/tailwind.scss";
-// Your stylesheet
 import "@/css/app.scss";
 
-// React core
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Mount the app
 import Layout from "@/components/layout";
+import { initTelegram } from "@/telegram/init";
+import { mockTelegramEnvIfNeeded } from "@/telegram/mockEnv";
 
-// Expose app configuration
-import appConfig from "../app-config.json";
+async function bootstrap() {
+  await mockTelegramEnvIfNeeded();
+  await initTelegram();
 
-if (!window.APP_CONFIG) {
-  window.APP_CONFIG = appConfig as any;
+  const root = createRoot(document.getElementById("app")!);
+  root.render(React.createElement(Layout));
+
+  // HashRouter needs a hash route when opening /Battleship/ directly.
+  if (!window.location.hash) {
+    window.location.replace(`${window.location.pathname}#/`);
+  }
 }
 
-const root = createRoot(document.getElementById("app")!);
-root.render(React.createElement(Layout));
+bootstrap().catch((error) => {
+  console.error("Failed to start Telegram Mini App", error);
+  document.body.innerHTML =
+    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#061421;color:#22d3ee;font-family:monospace;padding:24px;text-align:center">Không thể khởi động Mini App. Mở lại trong Telegram hoặc refresh trang.</div>';
+});

@@ -15,7 +15,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <BottomNavigation fixed activeKey={activeTab}>
+    <BottomNavigation activeKey={activeTab}>
       {navItems.map((item) => (
         <BottomNavigation.Item
           key={item.path} // Key cực kỳ quan trọng để xác định tab active

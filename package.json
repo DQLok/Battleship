@@ -2,7 +2,7 @@
   "name": "battleship",
   "private": true,
   "version": "1.0.0",
-  "description": "zmp-blank-templates",
+  "description": "Telegram Mini App Battleship",
   "repository": "",
   "license": "UNLICENSED",
   "browserslist": [
@@ -15,20 +15,28 @@
     "Samsung >= 5"
   ],
   "scripts": {
-    "login": "zmp login",
-    "start": "zmp start",
-    "deploy": "zmp deploy"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:studio": "supabase studio"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
+    "@telegram-apps/sdk-react": "^3.3.9",
+    "@telegram-apps/telegram-ui": "^2.1.13",
     "jotai": "^2.12.1",
     "lucide-react": "^1.7.0",
     "motion": "^12.38.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.2",
     "tailwind-merge": "^3.5.0",
-    "zmp-sdk": "latest",
-    "zmp-ui": "latest",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -37,12 +45,12 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "cross-env": "^7.0.3",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.4.38",
     "postcss-cli": "^8.3.1",
     "postcss-preset-env": "^6.7.0",
     "sass": "^1.76.0",
     "tailwindcss": "^3.4.3",
-    "vite": "^5.2.13",
-    "zmp-vite-plugin": "latest"
+    "vite": "^5.2.13"
   }
 }

@@ -22,7 +22,6 @@ import { useSupabase } from "@/hooks/useSupabase";
 import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
 import ShipStatusHeader from "./components/ShipStatusHeader";
-import BottomNav from "@/components/BottomNav";
 import { ShipDock } from "./components/ShipDock";
 
 import "@/css/features/combat.scss";
@@ -57,6 +56,7 @@ const CombatPage: React.FC = () => {
     recordMove,
     resetShips,
     generateRandomFleet,
+    setIsBotMode,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
@@ -70,12 +70,19 @@ const CombatPage: React.FC = () => {
   const lastGameSnapshotRef = useRef<any>(null);
   const rematchResetRef = useRef(false);
 
-  const gameId = state?.gameId || "ROOM_TEST_01";
+  const gameId = state?.gameId || game?.id || "ROOM_TEST_01";
+  const botMode = isBotMode || gameId === "###";
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
+
+  useEffect(() => {
+    if (gameId === "###" && !isBotMode) {
+      setIsBotMode(true);
+    }
+  }, [gameId, isBotMode, setIsBotMode]);
 
   // Lắng nghe trạng thái game để điều hướng khi phòng bị reset về waiting
   useEffect(() => {
-    if (!gameId || !user || isBotMode) return;
+    if (!gameId || !user || botMode) return;
 
     const gameChannel = supabase
       .channel(`game_${gameId}`)
@@ -154,7 +161,7 @@ const CombatPage: React.FC = () => {
     return () => {
       supabase.removeChannel(gameChannel);
     };
-  }, [gameId, user?.id, isBotMode]);
+  }, [gameId, user?.id, botMode]);
 
   useEffect(() => {
     if (inBattle) {
@@ -167,7 +174,7 @@ const CombatPage: React.FC = () => {
 
   // useEffect xử lý Presence và Countdown
   useEffect(() => {
-    if (isBotMode || !gameId || !user || !inBattle) return;
+    if (botMode || !gameId || !user || !inBattle) return;
     const channel = subscribePresence(
       gameId,
       user.id,
@@ -180,13 +187,13 @@ const CombatPage: React.FC = () => {
     return () => {
       channel.unsubscribe();
     };
-  }, [gameId, user?.id, isBotMode, inBattle]);
+  }, [gameId, user?.id, botMode, inBattle]);
 
   // Logic đếm ngược khi đối thủ vắng mặt
   // Bước 1: Chỉ làm nhiệm vụ giảm số countdown
   useEffect(() => {
     let interval: any;
-    if (inBattle && isOpponentAway && !isBotMode && !isGracePeriod && !winner) {
+    if (inBattle && isOpponentAway && !botMode && !isGracePeriod && !winner) {
       interval = setInterval(() => {
         setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
@@ -194,7 +201,7 @@ const CombatPage: React.FC = () => {
       setCountdown(20); // Reset nếu đối thủ quay lại hoặc game xong
     }
     return () => clearInterval(interval);
-  }, [inBattle, isOpponentAway, isBotMode, isGracePeriod, winner]);
+  }, [inBattle, isOpponentAway, botMode, isGracePeriod, winner]);
 
   // Bước 2: Theo dõi countdown chạm 0 để xử thắng (Hết lỗi kẹt countdown)
   useEffect(() => {
@@ -204,7 +211,7 @@ const CombatPage: React.FC = () => {
   }, [countdown, inBattle, isOpponentAway, winner]);
 
   useEffect(() => {
-    if (isBotMode || !gameId || !user) return;
+    if (botMode || !gameId || !user) return;
 
     // --- CHANNEL 1: CHUYÊN XỬ LÝ LƯỢT BẮN (MOVES) ---
     const moveChannel = supabase
@@ -259,7 +266,7 @@ const CombatPage: React.FC = () => {
       supabase.removeChannel(moveChannel);
       supabase.removeChannel(boardChannel);
     };
-  }, [gameId, user?.id, isBotMode]); // Chỉ phụ thuộc vào ID cơ bản
+  }, [gameId, user?.id, botMode]); // Chỉ phụ thuộc vào ID cơ bản
 
   useEffect(() => {
     if (isReadySent && enemyShips.length > 0 && !inBattle) {
@@ -274,7 +281,7 @@ const CombatPage: React.FC = () => {
   useEffect(() => {
     const handleCleanUp = async () => {
       if (winner && gameId && !isFinishing) {
-        if (isBotMode) {
+        if (botMode) {
           openSnackbar({
             text: `Chiến dịch ${
               winner === "player" ? "Thất bại" : "Thành công"
@@ -334,7 +341,7 @@ const CombatPage: React.FC = () => {
 
   const handleLeaveBattle = async () => {
     if (!gameId || !user) return;
-    if (isBotMode) {
+    if (botMode) {
       resetShips();
       setInBattle(false);
       navigate("/lobby");
@@ -366,7 +373,7 @@ const CombatPage: React.FC = () => {
   const handleSurrenderForRematch = async () => {
     if (!gameId || !user) return;
     if (!inBattle) return;
-    if (isBotMode) {
+    if (botMode) {
       // Bot mode: just reset locally
       resetShips();
       setEnemyShips([]);
@@ -388,9 +395,12 @@ const CombatPage: React.FC = () => {
 
   // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
-    if (!inBattle || !turn || !user || isFinishing) return;
+    if (!inBattle || !turn || isFinishing) return;
+    if (!botMode && !user) return;
 
-    if (isBotMode) {
+    const attackerId = user?.id || "guest_user";
+
+    if (botMode) {
       // --- CHẾ ĐỘ BOT ---
       // 1. Kiểm tra xem ô (x,y) đã bắn chưa (tránh bắn lại ô cũ)
       if (useCombatStore.getState().enemyGrid[y][x] !== "empty") return;
@@ -428,11 +438,11 @@ const CombatPage: React.FC = () => {
 
       // 4. Ghi nhận nước đi vào Store (userId khác currentUserId để xác định phe bắn)
       recordMove(
-        user.id, // userId của người bắn
+        attackerId,
         x,
         y,
         !!hitShip,
-        user.id, // currentUserId để so sánh
+        attackerId,
         sunkName
       );
     } else {
@@ -449,42 +459,51 @@ const CombatPage: React.FC = () => {
 
   // --- 4. KHỞI CHẠY CHIẾN DỊCH ---
   const handleStartBattle = async () => {
-    if (!isReadyToStart || !user) return;
+    if (isReadySent) return;
 
-    if (isBotMode) {
-      // 1. Tạo đội hình ngẫu nhiên cho Bot
+    if (!isReadyToStart) {
+      openSnackbar({ text: "Cần dàn đủ 4 tàu trước khi triển khai." });
+      return;
+    }
+
+    if (botMode) {
+      setIsBotMode(true);
       const botFleet = generateRandomFleet();
       setEnemyShips(botFleet);
-
-      // 2. Vào trận ngay lập tức
       setIsReadySent(true);
       setInBattle(true);
       setTurn(true);
       openSnackbar({ text: "CHIẾN DỊCH VỚI BOT BẮT ĐẦU!" });
+      return;
+    }
+
+    if (!user) {
+      openSnackbar({ text: "Vui lòng đăng nhập!" });
+      return;
+    }
+
+    const { error } = await saveShipLayout(gameId, user.id, placedShips);
+    if (error) {
+      openSnackbar({ text: "Lỗi kết nối vệ tinh!", type: "error" });
+      return;
+    }
+
+    setIsReadySent(true);
+
+    const { data: opponent } = await supabase
+      .from("game_boards")
+      .select("ships_data, is_ready")
+      .eq("game_id", gameId)
+      .neq("user_id", user.id)
+      .maybeSingle();
+
+    if (opponent?.is_ready) {
+      setEnemyShips(opponent.ships_data);
+      setInBattle(true);
+      setTurn(false);
+      openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
     } else {
-      const { error } = await saveShipLayout(gameId, user.id, placedShips);
-      if (error) {
-        openSnackbar({ text: "Lỗi kết nối vệ tinh!", type: "error" });
-        return;
-      }
-
-      setIsReadySent(true);
-
-      const { data: opponent } = await supabase
-        .from("game_boards")
-        .select("ships_data, is_ready")
-        .eq("game_id", gameId)
-        .neq("user_id", user.id)
-        .maybeSingle();
-
-      if (opponent?.is_ready) {
-        setEnemyShips(opponent.ships_data);
-        setInBattle(true);
-        setTurn(false);
-        openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
-      } else {
-        openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
-      }
+      openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
     }
   };
 
@@ -510,14 +529,18 @@ const CombatPage: React.FC = () => {
         // Nếu đang trong trận, ẩn nút back mặc định, buộc dùng nút Rút quân hoặc nút vật lý
         showBackIcon={!inBattle}
         onBackClick={() => {
-          setShowExitConfirm(true);
+          if (inBattle && !winner) {
+            setShowExitConfirm(true);
+            return;
+          }
+          navigate("/lobby");
         }}
       />
 
       <Box className="combat-main-content pb-32">
         <Box className="flex items-center justify-between mb-4">
           <Text size="small" className="text-cyan-400">
-            Room: {isBotMode ? "Bot" : game?.room_name}
+            Room: {botMode ? "Bot" : game?.room_name}
           </Text>
         </Box>
         <CombatHeader />
@@ -589,10 +612,9 @@ const CombatPage: React.FC = () => {
 
               <Button
                 fullWidth
-                disabled={!isReadyToStart || isReadySent}
                 className={`h-14 font-black ${
-                  isReadySent
-                    ? "bg-gray-700"
+                  !isReadyToStart || isReadySent
+                    ? "bg-gray-700 text-gray-400 shadow-none"
                     : "bg-cyan-500 shadow-[0_0_20px_#22d3ee]"
                 }`}
                 onClick={handleStartBattle}
@@ -605,7 +627,7 @@ const CombatPage: React.FC = () => {
               fullWidth
               variant="secondary"
               className="mt-4 text-red-900/50 text-[9px] border-none"
-              onClick={handleSurrenderForRematch}
+              onClick={() => setShowExitConfirm(true)}
             >
               RÚT QUÂN (SURRENDER)
             </Button>
@@ -746,7 +768,6 @@ const CombatPage: React.FC = () => {
         </Box>
       )}
 
-      <BottomNav />
     </Page>
   );
 };

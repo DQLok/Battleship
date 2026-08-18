@@ -1,10 +1,10 @@
 @use "../components/patterns" as *;
 
 .lobby-page {
-  @apply w-full h-screen flex flex-col bg-[#061421] overflow-hidden pt-[calc(var(--inset-top)+48px)] pb-[calc(var(--inset-bottom)+48px)];
+  @apply w-full h-full min-h-0 flex flex-col bg-[#061421] overflow-hidden;
 
   .lobby-tabs {
-    @apply gap-4 bg-[#061421] border-b border-cyan-900/30;
+    @apply gap-4 bg-[#061421];
   }
 
   .fab-button {

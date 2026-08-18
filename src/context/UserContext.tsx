@@ -1,6 +1,11 @@
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
-import { getAppUserId } from "@/utils/user-info";
+import {
+  getAppUserId,
+  getTelegramUser,
+  telegramAvatarUrl,
+  telegramDisplayName,
+} from "@/utils/user-info";
 import {
   ReactNode,
   createContext,
@@ -8,7 +13,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import { getUserInfo } from "zmp-sdk";
 
 interface UserContextType {
   user: Profile | null;
@@ -20,24 +24,26 @@ const UserContext = createContext<UserContextType>({
   loading: true,
 });
 
-// src/context/UserContext.tsx
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initUser = async () => {
       try {
-        const { userInfo } = await getUserInfo({});
         const id = await getAppUserId();
+        const tgUser = getTelegramUser();
+        const isMocked = Boolean(
+          new URLSearchParams(window.location.search).get("mockId") ||
+            new URLSearchParams(window.location.hash.split("?")[1] || "").get("mockId")
+        );
 
         const userData = {
-          id: id || userInfo.id,
-          username: id ? `Player_${id}` : userInfo.name,
-          avatar_url: id ? "" : userInfo.avatar,
+          id,
+          username: isMocked ? `Player_${id}` : telegramDisplayName(id, tgUser),
+          avatar_url: isMocked ? "" : telegramAvatarUrl(tgUser),
         };
 
-        // Sync Supabase ngay tại đây
         const { data, error } = await supabase
           .from("profiles")
           .upsert(
@@ -51,6 +57,20 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           )
           .select()
           .single();
+
+        if (error || !data) {
+          console.error(error);
+          setUser({
+            id: userData.id,
+            username: userData.username,
+            avatar_url: userData.avatar_url,
+            wins: 0,
+            total_games: 0,
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+          });
+          return;
+        }
 
         setUser(data);
       } catch (e) {

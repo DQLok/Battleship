@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import BottomNav from "@/components/BottomNav";
 
 const MatchmakingPage: React.FC = () => {
   const [seconds, setSeconds] = useState(0);
@@ -122,8 +121,6 @@ const MatchmakingPage: React.FC = () => {
           ✕ Cancel Search
         </button>
       </div>
-
-      <BottomNav />
     </div>
   );
 };

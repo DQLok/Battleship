@@ -1,6 +1,6 @@
 // 1. Profile người dùng
 export interface Profile {
-  id: string; // Zalo ID
+  id: string; // Telegram user ID
   username: string | null;
   avatar_url: string | null;
   wins: number;

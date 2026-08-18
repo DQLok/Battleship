@@ -1,20 +1,25 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import zaloMiniApp from "zmp-vite-plugin";
 import react from "@vitejs/plugin-react";
 
-// https://vitejs.dev/config/
-export default () => {
-  return defineConfig({
-    root: "./src",
-    base: "",
-    plugins: [zaloMiniApp(), react()],
-    build: {
-      assetsInlineLimit: 0,
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  plugins: [react()],
+  base: "/Battleship/", // Thay <ten-repository-github> bằng tên repo trên GitHub của bạn (ví dụ: /battleship/)
+  resolve: {
+    alias: {
+      "@": path.resolve(rootDir, "src"),
+      "zmp-ui": path.resolve(rootDir, "src/compat/zmp-ui.tsx"),
+      "zmp-sdk": path.resolve(rootDir, "src/compat/zmp-sdk.ts"),
     },
-    resolve: {
-      alias: {
-        "@": "/src",
-      },
-    },
-  });
-};
+  },
+  build: {
+    outDir: "dist",
+  },
+  server: {
+    port: 3000,
+    host: true,
+  },
+});
