@@ -9,8 +9,10 @@ Battleship là game nhiều người chơi chạy trong Telegram Mini App. Ngư�
 
 ## Tổng quan xử lý (End-to-end)
 1. Khởi tạo người chơi
-   - Client lấy thông tin người dùng từ Telegram và map sang `public.profiles.id` (text).
-   - Nếu chưa có profile, app tạo/ensure profile (hoặc thao tác upsert theo logic của project).
+   - Production (Telegram): `profiles.id` = Telegram user id (text).
+   - Local browser dev: mỗi tab có id riêng `dev_xxxxx` (lưu `sessionStorage`) — không cần Telegram initData.
+   - Override thủ công: `?mockId=player1` hoặc `#/?mockId=player2` (HashRouter).
+   - App `upsert` profile khi load (`UserContext`).
 
 2. Tạo & tham gia phòng đấu
    - Người chơi tạo room (`public.games`) và các state chung như `status`, `members`, `game_mode`.
@@ -36,7 +38,16 @@ Battleship là game nhiều người chơi chạy trong Telegram Mini App. Ngư�
 6. Realtime
    - App subscribe realtime cho các bảng `public.games`, `public.game_boards`, `public.moves` để cập nhật UI ngay khi state thay đổi.
 
-## Ghi chú về Migration
+## Test local (web + DB local)
+- Dev server: `npm run dev` → http://localhost:5173/
+- Supabase Studio: http://localhost:54333
+- API: http://localhost:54331 — Postgres: `localhost:54332`
+- Mở 2 tab test multiplayer (giữ `mockId` trên query, không bỏ vào hash):
+  - Tab 1: http://localhost:5173/?mockId=player1
+  - Tab 2: http://localhost:5173/?mockId=player2
+- App tự thêm `#/` → URL thực tế: `http://localhost:5173/?mockId=player1#/`
+- Console log: `[Battleship] Mock user id: player1`
+
 Project đang dùng đúng 1 migration SQL cho cả schema và RPC/trigger để dễ tối ưu/đồng bộ giữa local và remote:
 - file: `supabase/migrations/20250818000000_battleship_telegram_schema.sql`
 - chứa: tables + indexes + RLS + realtime + RPC functions + trigger logic.

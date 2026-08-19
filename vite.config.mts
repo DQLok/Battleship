@@ -5,9 +5,11 @@ import react from "@vitejs/plugin-react";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: "/Battleship/", // Thay <ten-repository-github> bằng tên repo trên GitHub của bạn (ví dụ: /battleship/)
+  // GitHub Pages needs /Battleship/; local `npm run dev` must serve at `/`
+  // so http://localhost:5173/?mockId=player1 works.
+  base: command === "build" ? "/Battleship/" : "/",
   resolve: {
     alias: {
       "@": path.resolve(rootDir, "src"),
@@ -19,7 +21,7 @@ export default defineConfig({
     outDir: "dist",
   },
   server: {
-    port: 3000,
+    port: 5173,
     host: true,
   },
-});
+}));

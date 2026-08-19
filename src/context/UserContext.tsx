@@ -3,6 +3,7 @@ import { Profile } from "@/types/supabase/Profile";
 import {
   getAppUserId,
   getTelegramUser,
+  isDevUserMode,
   telegramAvatarUrl,
   telegramDisplayName,
 } from "@/utils/user-info";
@@ -33,10 +34,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       try {
         const id = await getAppUserId();
         const tgUser = getTelegramUser();
-        const isMocked = Boolean(
-          new URLSearchParams(window.location.search).get("mockId") ||
-            new URLSearchParams(window.location.hash.split("?")[1] || "").get("mockId")
-        );
+        const isMocked = isDevUserMode();
 
         const userData = {
           id,
