@@ -7,13 +7,20 @@ create extension if not exists "pgcrypto";
 -- PROFILES
 -- ──────────────────────────────────────────────
 create table if not exists public.profiles (
-  id          text primary key,
-  username    text,
-  avatar_url  text,
-  wins        integer not null default 0,
-  total_games integer not null default 0,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  id                 text primary key,
+  telegram_id        text unique,
+  username           text,
+  avatar_url         text,
+  first_name         text,
+  last_name          text,
+  telegram_username  text,
+  language_code      text,
+  is_premium         boolean,
+  allows_write_to_pm boolean,
+  wins               integer not null default 0,
+  total_games        integer not null default 0,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
 );
 
 -- ──────────────────────────────────────────────
@@ -22,12 +29,13 @@ create table if not exists public.profiles (
 create table if not exists public.games (
   id            uuid primary key default gen_random_uuid(),
   room_name     text not null default 'BattleShip',
-  host_id       text references public.profiles(id) on delete set null,
+  room_code     text,
+  host_id       text,
   members       text[] not null default '{}',
   status        text not null default 'waiting'
                   check (status in ('waiting', 'playing', 'finished')),
-  current_turn  text references public.profiles(id),
-  winner_id     text references public.profiles(id),
+  current_turn  text,
+  winner_id     text,
   game_mode     text not null default '1vs1'
                   check (game_mode in ('1vs1', 'team')),
   ready_members text[] not null default '{}',
@@ -38,13 +46,17 @@ create table if not exists public.games (
 create unique index if not exists unique_waiting_room_per_user
   on public.games (host_id) where status = 'waiting';
 
+create unique index if not exists games_room_code_uidx
+  on public.games (room_code)
+  where room_code is not null;
+
 -- ──────────────────────────────────────────────
 -- GAME BOARDS (ship placement per player)
 -- ──────────────────────────────────────────────
 create table if not exists public.game_boards (
   id         uuid primary key default gen_random_uuid(),
   game_id    uuid not null references public.games(id) on delete cascade,
-  user_id    text not null references public.profiles(id) on delete cascade,
+  user_id    text not null,
   ships_data jsonb not null default '[]'::jsonb,
   hits_taken jsonb not null default '[]'::jsonb,
   is_ready   boolean not null default false,
@@ -58,7 +70,7 @@ create table if not exists public.game_boards (
 create table if not exists public.moves (
   id             uuid primary key default gen_random_uuid(),
   game_id        uuid not null references public.games(id) on delete cascade,
-  user_id        text not null references public.profiles(id) on delete cascade,
+  user_id        text not null,
   x              integer not null check (x >= 0 and x < 10),
   y              integer not null check (y >= 0 and y < 10),
   is_hit         boolean not null default false,

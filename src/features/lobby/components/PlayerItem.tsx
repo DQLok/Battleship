@@ -29,9 +29,9 @@ export const PlayerItem = ({
         </Box>
         <Box>
           <Box className="text-white font-bold text-sm uppercase tracking-widest">
-            {player.username.length > 10
-              ? `${player.username.toUpperCase().slice(0, 10)}...`
-              : player.id || "Player"}
+            {(player.username || player.id || "Player").length > 10
+              ? `${(player.username || player.id).toUpperCase().slice(0, 10)}...`
+              : (player.username || player.id || "Player")}
           </Box>
           <Box
             className={`text-[10px] font-bold ${teamColor.replace(

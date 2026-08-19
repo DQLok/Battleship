@@ -7,11 +7,12 @@ import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { Profile } from "@/types/supabase/Profile";
+import { JoinRoomCode } from "@/features/lobby/components/JoinRoomCode";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
-  const { user } = useUser();
+  const { user, isGuest } = useUser();
 
   const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
@@ -54,7 +55,7 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchMe = async () => {
-      if (!user?.id) return;
+      if (isGuest || !user?.id) return;
       setLoadingMe(true);
       try {
         const { data, error } = await supabase
@@ -73,7 +74,7 @@ const HomePage: React.FC = () => {
     };
 
     fetchMe();
-  }, [user?.id]);
+  }, [user?.id, isGuest]);
 
   return (
     <Page className="home-page" hideScrollbar>
@@ -152,6 +153,12 @@ const HomePage: React.FC = () => {
 
         {/* Action Buttons - Áp dụng .btn-primary-combat */}
         <Box className="w-full max-w-sm space-y-6">
+          {isGuest && (
+            <Text className="guest-hint text-center">
+              Bạn đang chơi với vai trò Guest. Mở Mini App trong Telegram để lưu tài khoản.
+            </Text>
+          )}
+          <JoinRoomCode />
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -163,7 +170,7 @@ const HomePage: React.FC = () => {
             <Box className="relative flex items-center justify-center gap-3">
               <Zap className="w-6 h-6 fill-primary" />
               <Box className="font-headline text-xl font-bold tracking-widest uppercase">
-                Bắt đầu Chiến đấu
+                {isGuest ? "Danh sách phòng" : "Bắt đầu Chiến đấu"}
               </Box>
             </Box>
             <Box className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-primary" />
@@ -253,7 +260,9 @@ const HomePage: React.FC = () => {
         <Box p={4} className="bg-[#061421]">
           <Text.Title className="text-cyan-400 font-black">Thành tích</Text.Title>
           <Text size="xSmall" className="text-cyan-700 mt-1">
-            Thống kê lấy từ `profiles` của bạn.
+            {isGuest
+              ? "Guest không lưu thành tích trên máy chủ."
+              : "Thống kê lấy từ `profiles` của bạn."}
           </Text>
 
           <Box className="mt-4 grid grid-cols-2 gap-3">

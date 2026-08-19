@@ -1,73 +1,41 @@
 # Home — Battleship Mini App
 
-Tài liệu này mô tả trang **Home** (màn hình đầu tiên) và các tính năng liên quan: điều hướng, BXH, thành tích, và các mục đang triển khai.
+Trang đầu: vào lobby / nhập mã phòng, xem BXH và thành tích. Identity: [identity.md](./identity.md).
 
 ## Mục tiêu
 
-- Là “cửa vào” nhanh để người chơi bắt đầu vào Lobby và tham gia trận.
-- Hiển thị thông tin nổi bật:
-  - **BXH**: Top 10 người chơi có `wins` cao nhất.
-  - **Thành tích**: `total_games` và `wins` của người chơi hiện tại.
-- Các mục phụ:
-  - **Cài đặt**: hiện thông báo “đang triển khai”.
-  - **Phần thưởng hằng ngày**: hiện thông báo “đang triển khai”.
+- Cửa vào Lobby hoặc join bằng `room_code`.
+- **BXH**: top 10 `profiles.wins`.
+- **Thành tích**: `total_games` / `wins` của user Telegram; Guest không fetch DB (hiện 0 + ghi chú).
+- Phụ: cài đặt / thưởng ngày — snackbar “đang triển khai”.
 
-## File liên quan
+## File
 
-- UI + logic fetch data: `src/features/home/HomePage.tsx`
-- User context (đảm bảo profile tồn tại trong DB): `src/context/UserContext.tsx`
-- Type: `src/types/supabase/Profile.ts`
+- `src/features/home/HomePage.tsx`
+- `src/features/lobby/components/JoinRoomCode.tsx`
+- `src/context/UserContext.tsx`, `src/types/supabase/Profile.ts`
+- Style: `src/css/features/home.scss` (`.join-room-code`, `.guest-hint`)
 
-## Điều hướng
+## Điều hướng / UI
 
-- Nút **“Bắt đầu Chiến đấu”**: điều hướng sang `/lobby`.
-- Các nút nhanh:
-  - **BXH**: mở Sheet hiển thị top 10.
-  - **Thành tích**: mở Sheet hiển thị stats của user.
-  - **Cài đặt**: snackbar “đang triển khai”.
-- Khối **Hàng ngày** (Daily Reward): snackbar “đang triển khai”.
+- **Nhập mã phòng**: mọi role; Guest dùng đây để vào phòng user.
+- Guest banner: mở Mini App Telegram để lưu tài khoản.
+- **Bắt đầu Chiến đấu** / **Danh sách phòng** (Guest) → `/lobby`.
+- BXH / Thành tích / Cài đặt / Hàng ngày: như cũ (Sheet / snackbar).
 
-## BXH (Top 10 wins)
+## BXH
 
-Nguồn dữ liệu: bảng `profiles`.
+`profiles`: `select` id, username, avatar_url, wins, total_games, timestamps; `order wins desc`; `limit 10`.
 
-- Query (client-side):
-  - `select(id, username, avatar_url, wins, total_games, created_at, updated_at)`
-  - `order("wins", { ascending: false })`
-  - `limit(10)`
+## Thành tích
 
-UI:
+- User: `eq("id", user.id).maybeSingle()`.
+- Guest: không query; copy trong Sheet giải thích không lưu thành tích server.
+- Lỗi fetch: fallback `user` từ context.
 
-- Hiển thị xếp hạng 1–10, avatar, username/id, số `wins`.
+## Checklist
 
-## Thành tích (của người chơi hiện tại)
-
-Nguồn dữ liệu: bảng `profiles` theo `id` của user hiện tại.
-
-- Query (client-side):
-  - `eq("id", user.id).maybeSingle()`
-
-UI:
-
-- **Trận tham gia**: `total_games`
-- **Trận thắng**: `wins`
-
-Lưu ý:
-
-- Nếu fetch profile lỗi, UI fallback sang dữ liệu `user` từ `UserContext` (best-effort).
-
-## Các mục đang triển khai
-
-- **Cài đặt**: hiển thị snackbar “Tính năng cài đặt đang triển khai.”
-- **Phần thưởng hằng ngày**: hiển thị snackbar “Tính năng phần thưởng hằng ngày đang triển khai.”
-
-## Checklist test nhanh
-
-- Mở Home:
-  - BXH load được (hoặc hiện “Chưa có dữ liệu”).
-  - Thành tích hiển thị đúng `wins` và `total_games`.
-- Bấm:
-  - “Bắt đầu Chiến đấu” → vào `/lobby`.
-  - “BXH” → mở/đóng Sheet ok.
-  - “Thành tích” → mở/đóng Sheet ok.
-  - “Cài đặt” + “Hàng ngày” → hiện snackbar “đang triển khai”.
+- Web: role Guest, không có hàng `profiles` mới khi chỉ mở Home.
+- Telegram: có `telegram_id` trên `profiles`.
+- Nhập mã phòng hợp lệ → waiting hoặc combat.
+- BXH / thành tích / snackbar phụ.

@@ -6,7 +6,8 @@ alwaysApply: true
 # Core Workflow
 
 - Prefer minimal, targeted changes over broad rewrites.
-- Before editing, read nearby code and preserve existing conventions.
+- Before editing, read nearby code **and** the matching docs (`docs/README.md`, `PROJECT_CONTEXT.md`).
+- After behavior/schema changes, update those docs in the same task (see `docs-workflow.mdc`).
 - Never revert user-authored changes unless explicitly requested.
 - After meaningful edits, run a quick verification step (`npm run build` or focused checks).
 

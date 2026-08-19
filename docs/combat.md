@@ -4,7 +4,7 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
 
 ## Mục tiêu tính năng
 
-- **Dàn trận**: người chơi đặt 4 tàu lên lưới \(10x10\) trước khi vào trận.
+- **Dàn trận**: đặt 4 tàu lên lưới 10×10 (kéo thả từ dock hoặc chọn rồi chạm ô).
 - **Chiến đấu**:
   - **Online**: bắn theo lượt qua realtime events của Supabase.
   - **Bot mode**: chơi offline giả lập (địch là bot), vẫn dùng chung store + UI.
@@ -14,10 +14,10 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
 
 - `src/features/combat/CombatPage.tsx`: trang chính Combat, điều phối toàn bộ flow.
 - `src/features/combat/components/`
-  - `GameGrid.tsx`: render lưới nhà/địch, xử lý tương tác chạm/kéo/thả/rotate.
-  - `ShipDock.tsx`: “bến tàu” để chọn tàu và bắt đầu kéo đặt.
-  - `ShipStatusHeader.tsx`: header khu vực “Hạm đội nhà”.
-  - `CombatControls.tsx`: nút auto place + reset (hiện có thể không dùng trực tiếp trong page).
+  - `GameGrid.tsx`: lưới nhà/địch; pointer drag, ghost hợp lệ/invalid.
+  - `ShipDock.tsx`: kéo tàu ra bản đồ.
+  - `ShipDragGhost.tsx`: preview theo con trỏ khi đang kéo.
+  - `ShipStatusHeader.tsx`, `CombatControls.tsx`
 - `src/hooks/useCombatStore.ts`: Zustand store cho toàn bộ state/actions của combat.
 - `src/hooks/useSupabase.ts`: API layer + subscribe presence phục vụ online.
 - `src/features/combat/constants.ts`: cấu hình hạm đội và kích thước lưới.
@@ -26,16 +26,14 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
 
 ### 1) Dàn trận (pre-battle)
 
-- Người chơi đặt tàu bằng:
-  - **Chọn tàu** ở `ShipDock` → store set `draggingShip`
-  - **Kéo trên lưới nhà** (`GameGrid type="home"`) để preview vị trí (ghost)
-  - **Thả** để `placeShip()`
-  - **Chạm nhanh** lên tàu đã đặt để `rotateShipAt(x, y)`
-  - **Nhấn giữ ~250ms** để `pickUpShip(size)` (nhấc tàu lên kéo lại)
-- “Sẵn sàng triển khai” khi `placedShips.length === 4`.
-- Nút chính:
-  - `DÀN TRẬN NGẪU NHIÊN` → `autoPlaceShips()`
-  - `XÁC NHẬN TRIỂN KHAI` → `handleStartBattle()`
+- **Kéo** tàu từ `ShipDock` thả lên lưới nhà (`GameGrid type="home"`). Ô cyan = hợp lệ, đỏ = lệch/đè.
+- Hoặc **chạm chọn** tàu (giữ “armed”) rồi chạm một ô trên lưới.
+- **XOAY TÀU** khi đang giữ tàu (`toggleDraggingRotation`).
+- Tàu đã đặt: **chạm ngắn** = xoay (`rotateShipAt`); **kéo** (ngưỡng ~10px) = nhấc (`pickUpShip`) rồi thả lại.
+- Đủ 4 tàu (`placedShips.length === 4`) mới “XÁC NHẬN TRIỂN KHAI”.
+- `DÀN TRẬN NGẪU NHIÊN` → `autoPlaceShips()`.
+
+Store: `setDraggingShip` / `updateDraggingPos` / `placeShip` / `pickUpShip` / `rotateShipAt` (`useCombatStore`). Pointer trên window (không chỉ `touchmove`) để Telegram + desktop cùng kéo được.
 
 ### 2) Vào trận (battle)
 
@@ -74,8 +72,7 @@ Khi đã bắt đầu trận (`inBattle === true`), nút **`RÚT QUÂN (SURRENDE
 ### Dữ liệu chính (Supabase types)
 
 - **Game**: `src/types/supabase/Game.ts`
-  - `status`: `waiting | playing | finished`
-  - `current_turn`, `winner_id`, `members`, `ready_members`, ...
+  - `status`, `room_code`, `current_turn`, `winner_id`, `members`, `ready_members`
 - **GameBoard**: `src/types/supabase/GameBoard.ts`
   - `ships_data`: layout tàu của từng người chơi
   - `is_ready`: đã dàn trận xong chưa
@@ -180,9 +177,8 @@ Mục tiêu: giảm rủi ro mất dữ liệu khi thao tác trong repo lúc ph�
 
 ## Test plan (gợi ý nhanh)
 
-- Dàn trận:
-  - đặt đủ 4 tàu; thử xoay; thử nhấc lên đặt lại; thử auto place.
-  - sau khi “XÁC NHẬN TRIỂN KHAI”: không được xoay/nhấc/đặt lại tàu nữa.
+- Dàn trận: kéo từ dock; xoay; kéo tàu đã đặt; auto place; sau xác nhận không chỉnh layout.
+- Guest vs Telegram: xem [identity.md](./identity.md) / [lobby.md](./lobby.md) nếu test join bằng mã phòng rồi vào combat.
 - Bot mode:
   - bắn trúng/hụt; bot bắn trả; kết thúc trận hiển thị đúng winner.
 - Online:

@@ -12,11 +12,44 @@ import {
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";
-import { generateFakePlayers } from "@/utils/user-info";
 import { useUser } from "@/context/UserContext";
 import { useSupabase } from "@/hooks/useSupabase";
 import { renderTeamSlots } from "./components/TeamSlot";
 import "@/css/features/waiting-room.scss";
+
+function mergeMemberProfiles(
+  memberIds: string[] = [],
+  profiles: Array<Pick<Profile, "id" | "username" | "avatar_url">> | null,
+  currentUser: Profile | null
+): Profile[] {
+  const byId = new Map((profiles || []).map((p) => [p.id, p]));
+  const now = new Date().toISOString();
+  return memberIds.map((id) => {
+    const fromDb = byId.get(id);
+    if (fromDb) {
+      return {
+        id,
+        username: fromDb.username,
+        avatar_url: fromDb.avatar_url,
+        wins: 0,
+        total_games: 0,
+        created_at: now,
+        updated_at: now,
+      };
+    }
+    if (currentUser?.id === id) return currentUser;
+    const short = id.replace(/^guest_/, "").slice(-4).toUpperCase();
+    return {
+      id,
+      username: id.startsWith("guest_") ? `Guest_${short}` : id,
+      avatar_url: null,
+      wins: 0,
+      total_games: 0,
+      created_at: now,
+      updated_at: now,
+    };
+  });
+}
 
 export const WaitingRoom = () => {
   const navigate = useNavigate();
@@ -126,11 +159,7 @@ export const WaitingRoom = () => {
         .from("profiles")
         .select("id, username, avatar_url")
         .in("id", gameData.members);
-      if (profiles)
-        setPlayers([
-          ...profiles,
-          // , ...fakePlayers
-        ] as Profile[]);
+      setPlayers(mergeMemberProfiles(gameData.members, profiles, user));
     }
   };
 
@@ -166,14 +195,7 @@ export const WaitingRoom = () => {
               .select("id, username, avatar_url")
               .in("id", updatedGame.members);
 
-            if (profiles) {
-              // Kết hợp với bot (nếu bạn vẫn dùng bot để test)
-              // const fakePlayers = generateFakePlayers(6);
-              setPlayers([
-                ...profiles,
-                // , ...fakePlayers
-              ] as Profile[]);
-            }
+            setPlayers(mergeMemberProfiles(updatedGame.members, profiles, user));
           }
 
           if (updatedGame.status === "playing") {
@@ -221,10 +243,10 @@ export const WaitingRoom = () => {
       <Box className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
         <Box>
           <Text className="text-[10px] text-cyan-700 uppercase">
-            Command Deck
+            Mã phòng
           </Text>
-          <Text className="text-xl font-bold">
-            #{game?.id?.slice(0, 4).toUpperCase() || "1234"}
+          <Text className="text-xl font-bold tracking-[0.25em]">
+            {game?.room_code || game?.id?.slice(0, 6).toUpperCase() || "------"}
           </Text>
         </Box>
         <Box className="flex items-center gap-2 bg-[#0A323B] px-3 py-1 rounded-full border border-cyan-500/30">

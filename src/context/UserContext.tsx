@@ -1,12 +1,5 @@
-import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
-import {
-  getAppUserId,
-  getTelegramUser,
-  isDevUserMode,
-  telegramAvatarUrl,
-  telegramDisplayName,
-} from "@/utils/user-info";
+import { ensureSession } from "@/api/ensureProfile";
 import {
   ReactNode,
   createContext,
@@ -17,60 +10,29 @@ import {
 
 interface UserContextType {
   user: Profile | null;
+  role: "user" | "guest";
+  isGuest: boolean;
   loading: boolean;
 }
 
 const UserContext = createContext<UserContextType>({
   user: null,
+  role: "guest",
+  isGuest: true,
   loading: true,
 });
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Profile | null>(null);
+  const [role, setRole] = useState<"user" | "guest">("guest");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initUser = async () => {
       try {
-        const id = await getAppUserId();
-        const tgUser = getTelegramUser();
-        const isMocked = isDevUserMode();
-
-        const userData = {
-          id,
-          username: isMocked ? `Player_${id}` : telegramDisplayName(id, tgUser),
-          avatar_url: isMocked ? "" : telegramAvatarUrl(tgUser),
-        };
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .upsert(
-            {
-              id: userData.id,
-              username: userData.username,
-              avatar_url: userData.avatar_url,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "id" }
-          )
-          .select()
-          .single();
-
-        if (error || !data) {
-          console.error(error);
-          setUser({
-            id: userData.id,
-            username: userData.username,
-            avatar_url: userData.avatar_url,
-            wins: 0,
-            total_games: 0,
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-          });
-          return;
-        }
-
-        setUser(data);
+        const session = await ensureSession();
+        setUser(session.profile);
+        setRole(session.role);
       } catch (e) {
         console.error(e);
       } finally {
@@ -81,7 +43,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, loading }}>
+    <UserContext.Provider
+      value={{ user, role, isGuest: role === "guest", loading }}
+    >
       {children}
     </UserContext.Provider>
   );

@@ -57,7 +57,7 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
                   : "bg-cyan-900 text-cyan-400"
               }`}
             >
-              #{room.id.slice(0, 4).toUpperCase()}
+              {room.room_code || `#${room.id.slice(0, 4).toUpperCase()}`}
             </Text>
             <Text
               size="small"

@@ -1,0 +1,26 @@
+---
+description: Always read and update project docs when changing product behavior
+alwaysApply: true
+---
+
+# Documentation workflow
+
+This repo keeps product behavior in `docs/` and `PROJECT_CONTEXT.md`. Treat them as the source of truth for identity, rooms, combat, and Telegram init.
+
+## Before coding
+
+- Read `PROJECT_CONTEXT.md` plus the matching file under `docs/` (see `docs/README.md`).
+- If the task touches users, rooms, Mini App bootstrap, or combat placement, do not invent a parallel flow — extend the documented one.
+
+## After coding
+
+When behavior, schema, or public APIs change, update docs in the same change:
+
+- Identity / profiles / guest → `docs/identity.md` + `PROJECT_CONTEXT.md`
+- Home / BXH → `docs/home.md`
+- Lobby / room code / waiting → `docs/lobby.md`
+- Combat / dàn trận → `docs/combat.md`
+- Telegram SDK / GitHub Pages URL → `docs/telegram-init.md`
+- New migrations → list them in `PROJECT_CONTEXT.md`
+
+Keep docs factual: current files, current columns, current user-facing steps. Do not leave stale “upsert on every load” or “mockId = profiles.id” language if the code no longer does that.

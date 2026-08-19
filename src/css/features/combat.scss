@@ -17,6 +17,10 @@
     .combat-main-content {
       @apply overflow-hidden;
     }
+
+    .ship-dock-item {
+      touch-action: none;
+    }
   }
 
   @keyframes target-pulse {

@@ -183,9 +183,58 @@ export function getOrCreateDevUserId(): string {
   }
 }
 
-export function isDevUserMode(): boolean {
-  if (resolveMockUserId()) return true;
-  return import.meta.env.DEV && !hadRealTelegramAtLoad();
+export type AppRole = "user" | "guest";
+
+export type GuestSession = {
+  id: string;
+  username: string;
+  role: "guest";
+};
+
+const GUEST_SESSION_KEY = "battleship_guest_session";
+
+export function loadGuestSession(): GuestSession {
+  try {
+    const raw = localStorage.getItem(GUEST_SESSION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as GuestSession;
+      if (parsed?.id && parsed.role === "guest") return parsed;
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+
+  const id = `guest_${Math.random().toString(36).slice(2, 10)}`;
+  const session: GuestSession = {
+    id,
+    username: `Guest_${id.slice(-4).toUpperCase()}`,
+    role: "guest",
+  };
+  try {
+    localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // Ignore storage errors.
+  }
+  return session;
+}
+
+/** Real Telegram Mini App with a readable user id — not a mocked browser env. */
+export function canPersistTelegramUser(): boolean {
+  return hadRealTelegramAtLoad() && Boolean(getTelegramId());
+}
+
+export function guestProfileFromSession(session: GuestSession): Profile {
+  const now = new Date().toISOString();
+  return {
+    id: session.id,
+    telegram_id: null,
+    username: session.username,
+    avatar_url: null,
+    wins: 0,
+    total_games: 0,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 type TelegramUserLike = {
@@ -195,12 +244,36 @@ type TelegramUserLike = {
   last_name?: string;
   firstName?: string;
   lastName?: string;
+  language_code?: string;
+  languageCode?: string;
+  is_premium?: boolean;
+  isPremium?: boolean;
   photo_url?: string;
   photoUrl?: string;
+  allows_write_to_pm?: boolean;
+  allowsWriteToPm?: boolean;
 };
 
+function readInjectedTelegramUser(): TelegramUserLike | undefined {
+  const user = (
+    window as unknown as {
+      Telegram?: { WebApp?: { initDataUnsafe?: { user?: TelegramUserLike } } };
+    }
+  ).Telegram?.WebApp?.initDataUnsafe?.user;
+  return user?.id != null ? user : undefined;
+}
+
 export function getTelegramUser(): TelegramUserLike | undefined {
-  return initDataUser() as TelegramUserLike | undefined;
+  return (initDataUser() as TelegramUserLike | undefined) || readInjectedTelegramUser();
+}
+
+function pickStr(
+  ...values: Array<string | undefined | null>
+): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
 }
 
 export function telegramDisplayName(id: string, user = getTelegramUser()) {
@@ -212,7 +285,47 @@ export function telegramDisplayName(id: string, user = getTelegramUser()) {
 }
 
 export function telegramAvatarUrl(user = getTelegramUser()) {
-  return user?.photo_url || user?.photoUrl || "";
+  return pickStr(user?.photo_url, user?.photoUrl) || "";
+}
+
+/** Public Telegram user fields safe to persist on `profiles`. */
+export function telegramPublicProfile(id: string, user = getTelegramUser()) {
+  const firstName = pickStr(user?.first_name, user?.firstName);
+  const lastName = pickStr(user?.last_name, user?.lastName);
+  const telegramUsername = pickStr(user?.username);
+  const languageCode = pickStr(user?.language_code, user?.languageCode);
+  const avatarUrl = telegramAvatarUrl(user);
+  const isPremium =
+    typeof user?.is_premium === "boolean"
+      ? user.is_premium
+      : typeof user?.isPremium === "boolean"
+        ? user.isPremium
+        : null;
+  const allowsWriteToPm =
+    typeof user?.allows_write_to_pm === "boolean"
+      ? user.allows_write_to_pm
+      : typeof user?.allowsWriteToPm === "boolean"
+        ? user.allowsWriteToPm
+        : null;
+
+  return {
+    id,
+    telegram_id: user?.id != null ? String(user.id) : id,
+    username: telegramUsername || telegramDisplayName(id, user),
+    avatar_url: avatarUrl || null,
+    first_name: firstName,
+    last_name: lastName,
+    telegram_username: telegramUsername,
+    language_code: languageCode,
+    is_premium: isPremium,
+    allows_write_to_pm: allowsWriteToPm,
+  };
+}
+
+/** Telegram user id from initData (numeric string). */
+export function getTelegramId(user = getTelegramUser()): string | null {
+  if (user?.id == null || user.id === "") return null;
+  return String(user.id);
 }
 
 /**

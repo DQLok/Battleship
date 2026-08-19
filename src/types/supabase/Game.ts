@@ -2,6 +2,7 @@
 export interface Game {
   id: string; // UUID
   room_name: string; // Tên phòng hiển thị
+  room_code?: string | null;
   host_id: string | null; // Telegram user ID of room host
 
   // Telegram user IDs of all players in the room

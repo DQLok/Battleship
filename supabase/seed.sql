@@ -1,11 +1,12 @@
 -- Dev seed data for local Telegram Mini App testing
 
-insert into public.profiles (id, username, avatar_url, wins, total_games)
+insert into public.profiles (id, telegram_id, username, avatar_url, wins, total_games)
 values
-  ('1', 'commander', '', 3, 10),
-  ('2', 'admiral_bot', '', 1, 5),
-  ('mock-player-2', 'Player_mock-player-2', '', 0, 0)
+  ('1', '1', 'commander', '', 3, 10),
+  ('2', '2', 'admiral_bot', '', 1, 5),
+  ('mock-player-2', 'mock-player-2', 'Player_mock-player-2', '', 0, 0)
 on conflict (id) do update set
+  telegram_id = excluded.telegram_id,
   username = excluded.username,
   updated_at = now();
 

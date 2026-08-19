@@ -4,7 +4,7 @@ import { useUser } from "@/context/UserContext";
 import { Avatar, Box, ImageViewer, Text } from "zmp-ui";
 
 const CombatHeader: React.FC = () => {
-  const { user } = useUser();
+  const { user, isGuest } = useUser();
 
   useEffect(() => {});
 
@@ -34,6 +34,11 @@ const CombatHeader: React.FC = () => {
         <Text className="text-cyan-400 font-bold tracking-[0.1em] text-xs md:text-sm uppercase truncate max-w-[120px]">
           {user?.username || "COMMANDER"}
         </Text>
+        {isGuest && (
+          <Text className="text-[9px] text-cyan-700 uppercase tracking-widest ml-1">
+            Guest
+          </Text>
+        )}
       </Box>
 
       {/* Bên phải: XP Badge */}
@@ -43,7 +48,7 @@ const CombatHeader: React.FC = () => {
         </Box>
         <Box className="text-cyan-300 font-bold text-xs tracking-tighter">
           {(user?.wins || 0).toLocaleString()}
-          {" Win"}
+          {isGuest ? " Guest" : " Win"}
         </Box>
       </Box>
     </Box>

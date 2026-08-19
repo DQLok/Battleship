@@ -1,4 +1,20 @@
+# Battleship (Telegram Mini App)
+
+Game dàn trận / bắn tàu. Tài liệu sản phẩm: **[docs/README.md](docs/README.md)** và [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+
+```bash
+npm install
+npm run dev          # http://localhost:5173/  (web = Guest)
+npm run build
+npm run deploy       # GitHub Pages /Battleship/
+```
+
+Mở trong Telegram để persist user (`profiles.telegram_id`). Guest nhập mã phòng để join.
+
+---
+
 # Zalo Mini App
+
 
 ## Development
 

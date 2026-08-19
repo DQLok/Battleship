@@ -23,6 +23,7 @@ import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
 import ShipStatusHeader from "./components/ShipStatusHeader";
 import { ShipDock } from "./components/ShipDock";
+import { ShipDragGhost } from "./components/ShipDragGhost";
 
 import "@/css/features/combat.scss";
 import { GameBoard } from "@/types/supabase/GameBoard";
@@ -57,6 +58,7 @@ const CombatPage: React.FC = () => {
     resetShips,
     generateRandomFleet,
     setIsBotMode,
+    toggleDraggingRotation,
   } = useCombatStore();
 
   const [inBattle, setInBattle] = useState(false);
@@ -583,12 +585,20 @@ const CombatPage: React.FC = () => {
         <Box className={`combat-section ${inBattle ? "mt-4" : "mt-6"}`}>
           <ShipStatusHeader />
           {!inBattle && (
-            <Box
-              className={`combat-section mt-4 ${
-                draggingShip ? "scale-95 opacity-30" : ""
-              }`}
-            >
+            <Box className="combat-section mt-4">
               <ShipDock disabled={isReadySent} />
+              {draggingShip && (
+                <Box className="flex justify-center mt-2">
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    className="border-cyan-500 text-cyan-400 text-[10px] font-black tracking-widest"
+                    onClick={toggleDraggingRotation}
+                  >
+                    XOAY TÀU
+                  </Button>
+                </Box>
+              )}
             </Box>
           )}
           <div className="mt-4 relative flex justify-center">
@@ -758,6 +768,8 @@ const CombatPage: React.FC = () => {
       )}
 
       {/* Hiển thị thông báo nhẹ khi đang trong Grace Period lúc mới vào trận */}
+      {!inBattle && <ShipDragGhost />}
+
       {inBattle && isGracePeriod && (
         <Box className="fixed top-20 left-0 right-0 z-[50] flex justify-center pointer-events-none">
           <div className="bg-cyan-900/80 px-4 py-1 rounded-full border border-cyan-400">

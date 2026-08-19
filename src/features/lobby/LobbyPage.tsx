@@ -13,6 +13,7 @@ import {
 import "@/css/features/lobby.scss";
 import { useSupabase } from "@/hooks/useSupabase";
 import RoomCard from "./components/RoomCard";
+import { JoinRoomCode } from "./components/JoinRoomCode";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
@@ -22,7 +23,7 @@ export const LobbyPage = () => {
   const { initGame, setIsBotMode } = useCombatStore();
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
-  const { user } = useUser();
+  const { user, isGuest } = useUser();
   const [myId, setMyId] = useState("");
 
   useEffect(() => {
@@ -35,6 +36,10 @@ export const LobbyPage = () => {
   }, []);
 
   const handleCreate = async () => {
+    if (isGuest && !import.meta.env.DEV) {
+      openSnackbar({ text: "Guest không tạo phòng được. Nhập mã phòng để tham gia." });
+      return;
+    }
     const { data, error } = await createRoom(myId);
     if (error) {
       console.error(error);
@@ -120,6 +125,14 @@ export const LobbyPage = () => {
         backgroundColor="#061421"
         showBackIcon={false}
       />
+      <Box p={4} className="pb-0">
+        {isGuest && (
+          <Text size="xSmall" className="text-cyan-600 mb-3 uppercase tracking-wider">
+            Guest — nhập mã phòng của người chơi Telegram để tham gia.
+          </Text>
+        )}
+        <JoinRoomCode />
+      </Box>
       <Tabs id="lobby-tabs">
         <Tabs.Tab key="all" label="TẤT CẢ PHÒNG" className="lobby-tabs">
           <Box p={4}>
@@ -162,11 +175,13 @@ export const LobbyPage = () => {
         </Tabs.Tab>
       </Tabs>
 
-      <Button
+      {(!isGuest || import.meta.env.DEV) && (
+        <Button
           className="fab-button"
           icon={<Icon icon="zi-plus" />}
           onClick={handleCreate}
         />
+      )}
     </Page>
   );
 };

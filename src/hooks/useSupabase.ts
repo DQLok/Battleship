@@ -3,6 +3,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useSnackbar } from "zmp-ui";
 
+const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateRoomCode(length = 6) {
+  let code = "";
+  for (let i = 0; i < length; i += 1) {
+    code += ROOM_CODE_ALPHABET[Math.floor(Math.random() * ROOM_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
 export const useSupabase = () => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,20 +79,29 @@ export const useSupabase = () => {
 
   // 2. Tạo phòng mới
   const createRoom = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("games")
-      .insert([
-        {
-          room_name: "BattleShip",
-          host_id: userId,
-          members: [userId],
-          status: "waiting",
-        },
-      ])
-      .select()
-      .single();
+    let lastError: { message?: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const { data, error } = await supabase
+        .from("games")
+        .insert([
+          {
+            room_name: "BattleShip",
+            room_code: generateRoomCode(),
+            host_id: userId,
+            members: [userId],
+            status: "waiting",
+          },
+        ])
+        .select()
+        .single();
 
-    return { data, error };
+      if (!error && data) return { data, error: null };
+      lastError = error;
+      if (error && !String(error.message || "").toLowerCase().includes("duplicate")) {
+        return { data: null, error };
+      }
+    }
+    return { data: null, error: lastError };
   };
 
   // 5. Xóa phòng (Chỉ dành cho chủ phòng)
@@ -105,6 +124,32 @@ export const useSupabase = () => {
       new_user_id: userId,
     });
     return { error };
+  };
+
+  const joinRoomByCode = async (rawCode: string, userId: string) => {
+    const roomCode = rawCode.trim().toUpperCase();
+    if (!roomCode) {
+      return { data: null, error: { message: "Nhập mã phòng." } };
+    }
+
+    const { data, error } = await supabase
+      .from("games")
+      .select("*")
+      .eq("room_code", roomCode)
+      .in("status", ["waiting", "playing"])
+      .maybeSingle();
+
+    if (error) return { data: null, error };
+    if (!data) return { data: null, error: { message: "Không tìm thấy phòng." } };
+
+    const alreadyIn =
+      data.host_id === userId || (data.members || []).includes(userId);
+    if (!alreadyIn) {
+      const { error: joinError } = await joinRoom(data.id, userId);
+      if (joinError) return { data: null, error: joinError };
+    }
+
+    return { data, error: null };
   };
 
   // 6. Lưu đội hình tàu (Dàn trận)
@@ -330,6 +375,7 @@ export const useSupabase = () => {
     fetchRooms,
     createRoom,
     joinRoom,
+    joinRoomByCode,
     deleteRoom,
     saveShipLayout,
     finishGame,

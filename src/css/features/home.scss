@@ -58,8 +58,29 @@
     }
   }
 
-  .btn-primary-combat {
-    @extend %ui-btn-primary-combat;
+  .guest-hint {
+    @apply text-[11px] text-cyan-600 uppercase tracking-wider leading-relaxed;
+  }
+
+  .join-room-code {
+    @apply w-full text-left;
+
+    &__label {
+      @apply text-[10px] font-black tracking-[0.2em] uppercase text-cyan-600 mb-2 block;
+    }
+
+    &__row {
+      @apply flex gap-2 items-stretch;
+    }
+
+    &__input {
+      @apply flex-1 bg-[#0a1f32] border border-cyan-900/60 text-cyan-100 uppercase tracking-[0.3em] text-center text-sm font-black rounded-sm px-3 py-3 outline-none;
+      letter-spacing: 0.25em;
+
+      &::placeholder {
+        @apply text-cyan-800 tracking-normal font-normal normal-case;
+      }
+    }
   }
 
   .menu-small-btn {
