@@ -1,0 +1,22 @@
+{
+  "repoId": "efe29bd0-105e-47fd-bc27-b45cfd719fb7",
+  "repoName": "battleship",
+  "server": "https://api.grapuco.com",
+  "language": "typescript",
+  "features": {
+    "embeddings": true,
+    "dataFlowAnalysis": true
+  },
+  "ignore": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".git",
+    ".grapuco",
+    "__pycache__",
+    "vendor",
+    "target",
+    "build"
+  ],
+  "lastPush": "2026-04-14T03:46:32.383Z"
+}

@@ -1,0 +1,23 @@
+---
+description: React component patterns for pages and feature components
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# React Component Patterns
+
+- Keep components focused; extract heavy logic to hooks in `src/hooks` or feature hooks.
+- Derive UI state from props/store when possible; avoid duplicated local state.
+- Prefer early returns for loading/empty/error states.
+- Keep prop names descriptive and consistent with feature terminology.
+
+# UI and State
+
+- Keep side effects inside `useEffect` with clear dependency arrays.
+- Group related callbacks and memoize only when it prevents real rerenders.
+- Preserve existing UI behavior unless the task explicitly changes UX.
+
+# File Organization
+
+- Shared UI belongs in `src/components`.
+- Feature-specific UI belongs in `src/features/<feature>/components`.

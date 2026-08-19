@@ -1,0 +1,22 @@
+---
+description: Core workflow and safety rules for this repository
+alwaysApply: true
+---
+
+# Core Workflow
+
+- Prefer minimal, targeted changes over broad rewrites.
+- Before editing, read nearby code and preserve existing conventions.
+- Never revert user-authored changes unless explicitly requested.
+- After meaningful edits, run a quick verification step (`npm run build` or focused checks).
+
+# Safety
+
+- Avoid destructive git commands (`reset --hard`, force push) unless explicitly requested.
+- If a command could delete many files, ask for confirmation first.
+- Keep secrets out of code and commits (`.env`, tokens, private keys).
+
+# Communication
+
+- Explain changes with short rationale and impacted files.
+- When blocked, report the blocker and propose the smallest next action.

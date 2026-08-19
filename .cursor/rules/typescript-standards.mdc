@@ -1,0 +1,26 @@
+---
+description: TypeScript standards for app logic and types
+globs: **/*.{ts,tsx,mts}
+alwaysApply: false
+---
+
+# TypeScript Standards
+
+- Prefer explicit types for exported functions, hooks, and store interfaces.
+- Keep domain types in `src/types/` and import them instead of duplicating shape literals.
+- Avoid `any`; use `unknown` and narrow safely.
+- Use small pure helpers for repeated transformation logic.
+
+# Errors and Async
+
+- Handle async failures with typed fallbacks or user-facing messages.
+- Keep `try/catch` blocks narrow to the operation that may fail.
+
+# Example
+
+```ts
+// Good: explicit return type
+export function toShipLabel(size: number): string {
+  return `${size}-cell ship`;
+}
+```

@@ -1,0 +1,25 @@
+---
+description: Grapuco indexing workflow (traceability + cache hygiene)
+alwaysApply: true
+---
+
+# Grapuco (.grapuco) Workflow
+
+This repo uses `.grapuco/` for code intelligence (AST cache, hashes, embeddings/dataflow config).
+
+## How to use it
+
+- Use Grapuco as a **traceability/indexing** layer when exploring the codebase (find where logic lives, follow data flow).
+- After meaningful code changes (especially in `src/`), **sync/push the Grapuco index** so it reflects the latest code.
+  - Use the CLI command: `grapuco push`
+  - The config lives at `.grapuco/config.json` (server + repo identity).
+
+## What NOT to change/commit
+
+- Treat `.grapuco/ast-cache/**` and generated hash/cache files as **machine-local**.
+- Do not edit cache files manually.
+- Do not commit cache files even if they appear in git status.
+
+## What is OK to keep in git
+
+- `.grapuco/config.json` can be tracked (shared project config).

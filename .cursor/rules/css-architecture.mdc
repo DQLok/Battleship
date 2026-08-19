@@ -1,0 +1,38 @@
+---
+description: CSS/SCSS architecture, naming, and reuse conventions
+alwaysApply: true
+---
+
+# CSS/SCSS Architecture (src/css)
+
+## Folder model
+
+- `src/css/foundation/`: global tokens + base styles
+  - `_tokens.scss`: CSS variables (colors, glow, fonts)
+  - `_base.scss`: body defaults + generic utilities
+- `src/css/overrides/`: vendor/framework overrides (ZaUI/ZMP-UI)
+  - `_zmp-ui.scss`
+- `src/css/features/`: feature/page-level styles (scoped by a root class)
+  - `home.scss` -> `.home-page { ... }`
+  - `combat.scss` -> `.combat-page { ... }`
+  - `lobby.scss` -> `.lobby-page { ... }`
+  - `waiting-room.scss` -> `.waiting-page { ... }`
+
+## Import rules
+
+- Global entrypoint stays in `src/css/app.scss` and should only aggregate `foundation/*` + `overrides/*`.
+- Feature pages import exactly one file from `src/css/features/<feature>.scss`.
+- Avoid importing global styles inside feature files (keep globals in `app.scss`).
+
+## Naming rules
+
+- Feature stylesheet name matches page root class:
+  - `home.scss` -> `.home-page`
+  - `waiting-room.scss` -> `.waiting-page`
+- Keep selectors nested under the page root class to avoid leaking styles globally.
+
+## Reuse guidance
+
+- Prefer CSS variables from `foundation/_tokens.scss` for theme colors/glow.
+- If a pattern is reused across 2+ features, extract it into a shared file (e.g. `src/css/components/`) and include it intentionally.
+
