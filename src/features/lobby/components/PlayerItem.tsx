@@ -11,7 +11,11 @@ export const PlayerItem = ({
 }: any) => (
   <Box className="relative group">
     <Box
-      className={`flex items-center justify-between p-3 bg-[#0A262E]/80 border-l-4 ${teamColor}`}
+      className={`flex items-center justify-between p-3 bg-[#0A262E]/80 border-l-4 ${teamColor} ${
+        player?.id && myId && player.id === myId
+          ? "ring-1 ring-cyan-300/70 shadow-[0_0_20px_rgba(34,211,238,0.25)]"
+          : ""
+      }`}
     >
       <Box className="flex items-center gap-3">
         <Box className="relative">
@@ -28,7 +32,13 @@ export const PlayerItem = ({
           )}
         </Box>
         <Box>
-          <Box className="text-white font-bold text-sm uppercase tracking-widest">
+          <Box
+            className={`font-bold text-sm uppercase tracking-widest ${
+              player?.id && myId && player.id === myId
+                ? "text-cyan-300 drop-shadow-[0_0_12px_rgba(34,211,238,0.55)]"
+                : "text-white"
+            }`}
+          >
             {(player.username || player.id || "Player").length > 10
               ? `${(player.username || player.id).toUpperCase().slice(0, 10)}...`
               : (player.username || player.id || "Player")}

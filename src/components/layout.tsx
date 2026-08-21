@@ -4,6 +4,7 @@ import { backButton, retrieveLaunchParams } from "@telegram-apps/sdk-react";
 import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
 import { SnackbarProvider } from "zmp-ui";
 import { UserProvider, useUser } from "@/context/UserContext";
+import { GameLifecycleProvider } from "@/context/GameLifecycleContext";
 
 import CombatPage from "@/features/combat/CombatPage";
 import HomePage from "@/features/home/HomePage";
@@ -87,9 +88,11 @@ function telegramPlatform(): "ios" | "base" {
 export const Layout = () => (
   <AppRoot appearance="dark" platform={telegramPlatform()} className="h-full">
     <UserProvider>
-      <HashRouter>
-        <AppContent />
-      </HashRouter>
+      <GameLifecycleProvider>
+        <HashRouter>
+          <AppContent />
+        </HashRouter>
+      </GameLifecycleProvider>
     </UserProvider>
   </AppRoot>
 );

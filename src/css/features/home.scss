@@ -58,8 +58,29 @@
     }
   }
 
-  .guest-hint {
-    @apply text-[11px] text-cyan-600 uppercase tracking-wider leading-relaxed;
+  .home-title {
+    @apply w-full max-w-sm flex flex-col items-center text-center mb-6 px-1;
+
+    &__name,
+    &__subtitle,
+    &__guest {
+      display: block;
+      width: 100%;
+    }
+
+    &__name {
+      @apply font-headline text-3xl md:text-5xl font-black italic tracking-tighter;
+      line-height: 1.15;
+    }
+
+    &__subtitle {
+      @apply mt-2 font-headline text-[10px] tracking-[0.25em] uppercase opacity-60;
+      line-height: 1.4;
+    }
+
+    &__guest {
+      @apply mt-3 text-[11px] text-cyan-600 uppercase tracking-wider leading-relaxed;
+    }
   }
 
   .join-room-code {

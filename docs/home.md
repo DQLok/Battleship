@@ -14,12 +14,13 @@ Trang đầu: vào lobby / nhập mã phòng, xem BXH và thành tích. Identity
 - `src/features/home/HomePage.tsx`
 - `src/features/lobby/components/JoinRoomCode.tsx`
 - `src/context/UserContext.tsx`, `src/types/supabase/Profile.ts`
-- Style: `src/css/features/home.scss` (`.join-room-code`, `.guest-hint`)
+- Style: `src/css/features/home.scss` (`.home-title` cột dọc, `.join-room-code`)
 
 ## Điều hướng / UI
 
-- **Nhập mã phòng**: mọi role; Guest dùng đây để vào phòng user.
-- Guest banner: mở Mini App Telegram để lưu tài khoản.
+- Khối title (dọc): **BẮN TÀU** → subtitle → Guest (kèm `user.id` phiên web).
+- **Nhập mã phòng**: mọi role.
+- **Tạo phòng**: Telegram và Guest (`createRoom(user.id)` → waiting).
 - **Bắt đầu Chiến đấu** / **Danh sách phòng** (Guest) → `/lobby`.
 - BXH / Thành tích / Cài đặt / Hàng ngày: như cũ (Sheet / snackbar).
 

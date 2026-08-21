@@ -28,7 +28,7 @@ export const JoinRoomCode = () => {
 
     initGame(data, user, false);
     setIsBotMode(false);
-    if (data.status === "playing") {
+    if (data.status === "setup" || data.status === "playing") {
       navigate("/combat", { state: { gameId: data.id } });
       return;
     }

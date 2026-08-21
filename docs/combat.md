@@ -10,6 +10,8 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
   - **Bot mode**: chơi offline giả lập (địch là bot), vẫn dùng chung store + UI.
 - **Kết thúc trận**: xác định thắng/thua, hiển thị modal, và (online) gọi RPC để lưu kết quả.
 
+**Player id (online):** lượt mình khi `games.current_turn === user.id`; thắng ghi `games.winner_id` = id người thắng (Telegram hoặc `guest_*`). Chi tiết [identity.md](./identity.md).
+
 ## Cấu trúc thư mục liên quan
 
 - `src/features/combat/CombatPage.tsx`: trang chính Combat, điều phối toàn bộ flow.
@@ -24,7 +26,9 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
 
 ## Luồng màn hình (CombatPage)
 
-### 1) Dàn trận (pre-battle)
+### 1) Dàn trận (pre-battle) — `games.status = setup`
+
+Host bấm BẮT ĐẦU ở WaitingRoom → `status: setup` → mọi member vào Combat (màn DÀN TRẬN).
 
 - **Kéo** tàu từ `ShipDock` thả lên lưới nhà (`GameGrid type="home"`). Ô cyan = hợp lệ, đỏ = lệch/đè.
 - Hoặc **chạm chọn** tàu (giữ “armed”) rồi chạm một ô trên lưới.
@@ -32,10 +36,11 @@ Tài liệu này mô tả **tính năng Combat** (dàn trận + chiến đấu) 
 - Tàu đã đặt: **chạm ngắn** = xoay (`rotateShipAt`); **kéo** (ngưỡng ~10px) = nhấc (`pickUpShip`) rồi thả lại.
 - Đủ 4 tàu (`placedShips.length === 4`) mới “XÁC NHẬN TRIỂN KHAI”.
 - `DÀN TRẬN NGẪU NHIÊN` → `autoPlaceShips()`.
+- Khi **cả hai** đã `game_boards.is_ready` → `status: playing` + set `current_turn`.
 
 Store: `setDraggingShip` / `updateDraggingPos` / `placeShip` / `pickUpShip` / `rotateShipAt` (`useCombatStore`). Pointer trên window (không chỉ `touchmove`) để Telegram + desktop cùng kéo được.
 
-### 2) Vào trận (battle)
+### 2) Vào trận (battle) — `games.status = playing`
 
 Khi vào trận, UI chia làm 2 phần:
 
@@ -49,30 +54,26 @@ Khi vào trận, UI chia làm 2 phần:
 - Khi có `winner` (`"player"` hoặc `"enemy"`):
   - Hiện `Modal` kết quả và gọi `handleEndSession()` để dọn state local.
   - Với online: `finishGame(gameId, winnerId)` được gọi trong effect cleanup.
-- Khi người chơi back/rời trang lúc đang chiến đấu:
-  - Chặn popstate và hiển thị `Sheet` xác nhận “rút quân”.
-  - Nếu chọn “NHẬN THUA”: dùng luồng “rời trận” (leave room) theo vai trò host/member.
+- Khi người chơi **Back** lúc đang chiến đấu:
+  - Sheet **rời trận** (`requestLeaveWithReconnect`, grace 30s). Không phải rút quân.
+  - Chi tiết: [lobby.md](./lobby.md) § “Rời phòng giữa trận”.
 
-### 4) Rút quân (Surrender) để mở trận mới (không rời phòng)
+### 4) Rút quân (Surrender) — thua và dàn trận lại
 
-Khi đã bắt đầu trận (`inBattle === true`), nút **`RÚT QUÂN (SURRENDER)`** dùng để **đầu hàng và reset trận** để 2 bên sắp xếp lại tàu mở trận mới trong cùng phòng.
+Khi `inBattle`, nút **`RÚT QUÂN (SURRENDER)`** mở popup xác nhận. Xác nhận:
 
-- **Không ai rời phòng**.
-- **Cập nhật thành tích**:
-  - Người bấm rút quân (loser): `total_games + 1`
-  - Đối thủ (winner): `wins + 1` và `total_games + 1`
-- **Reset dữ liệu trận**:
-  - dọn `moves` + `game_boards` theo `game_id`
-  - cập nhật `games` về `status: "waiting"`, `ready_members: []`, `current_turn: null`, `winner_id: null`
-- **UI**:
-  - cả hai bên được reset về trạng thái dàn trận ngay trong `CombatPage` (không chuyển trang).
+- Người bấm **xử thua**: +1 `total_games`; đối thủ +1 `wins` và +1 `total_games` (chỉ nếu có hàng `profiles`).
+- **Không ai rời phòng** (`members` giữ nguyên).
+- Reset trận: xóa `moves` + `game_boards`; `games` → `setup`, clear lượt; cả hai **ở CombatPage** dàn trận lại.
+- Đủ 2 bên xác nhận triển khai → `status: playing`.
+- Khác **Rời trận** (Back khi đang bắn): grace 30s reconnect, không cộng win.
 
 ## Chế độ Online (Supabase Realtime)
 
 ### Dữ liệu chính (Supabase types)
 
 - **Game**: `src/types/supabase/Game.ts`
-  - `status`, `room_code`, `current_turn`, `winner_id`, `members`, `ready_members`
+  - `status` (`waiting` | `setup` | `playing` | `finished`), `room_code`, `current_turn`, `winner_id`, `members`, `ready_members`
 - **GameBoard**: `src/types/supabase/GameBoard.ts`
   - `ships_data`: layout tàu của từng người chơi
   - `is_ready`: đã dàn trận xong chưa

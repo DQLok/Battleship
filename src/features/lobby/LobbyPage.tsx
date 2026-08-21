@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Page,
   Tabs,
@@ -14,6 +14,7 @@ import "@/css/features/lobby.scss";
 import { useSupabase } from "@/hooks/useSupabase";
 import RoomCard from "./components/RoomCard";
 import { JoinRoomCode } from "./components/JoinRoomCode";
+import { ReconnectBanner } from "./components/ReconnectBanner";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
@@ -23,30 +24,32 @@ export const LobbyPage = () => {
   const { initGame, setIsBotMode } = useCombatStore();
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
-  const { user, isGuest } = useUser();
-  const [myId, setMyId] = useState("");
+  const { user, isGuest, loading: userLoading } = useUser();
+  const myId = user?.id || "";
 
   useEffect(() => {
-    if (!user) {
-      openSnackbar({ text: "Vui lòng đăng nhập!" });
+    if (userLoading) return;
+    if (!user?.id) {
+      openSnackbar({ text: "Chưa có phiên chơi." });
       return;
     }
-    setMyId(user.id);
-    fetchRooms(); // Lấy dữ liệu lần đầu
-  }, []);
+    fetchRooms();
+  }, [userLoading, user?.id]);
 
   const handleCreate = async () => {
-    if (isGuest && !import.meta.env.DEV) {
-      openSnackbar({ text: "Guest không tạo phòng được. Nhập mã phòng để tham gia." });
+    if (!user?.id) {
+      openSnackbar({ text: "Chưa có phiên chơi." });
       return;
     }
-    const { data, error } = await createRoom(myId);
-    if (error) {
+    const { data, error } = await createRoom(user.id);
+    if (error || !data) {
       console.error(error);
-      openSnackbar({ message: error.code });
+      openSnackbar({
+        text: error?.message || "Không tạo được phòng.",
+        type: "error",
+      });
       return;
     }
-    // if (data) navigate(`/combat?gameId=${data.id}`);
     navigate(`/waiting`, { state: { gameId: data.id } });
   };
 
@@ -84,6 +87,16 @@ export const LobbyPage = () => {
     const isHost = targetRoom.host_id === myId;
 
     if (!isMember && !isHost) {
+      if (targetRoom.status === "setup" || targetRoom.status === "playing") {
+        openSnackbar({
+          text:
+            targetRoom.status === "setup"
+              ? "Phòng đang dàn trận. Chỉ thành viên mới vào lại được."
+              : "Phòng đang chiến đấu. Chỉ thành viên mới vào lại được.",
+          type: "error",
+        });
+        return;
+      }
       const { error } = await joinRoom(gameId, myId);
       if (error) {
         openSnackbar({
@@ -95,11 +108,9 @@ export const LobbyPage = () => {
     }
 
     // 3. Điều hướng dựa trên trạng thái (Status) của phòng
-    if (targetRoom.status === "playing") {
-      // Nếu đang đánh nhau -> Vào thẳng bàn cờ
+    if (targetRoom.status === "playing" || targetRoom.status === "setup") {
       navigate("/combat", { state: { gameId } });
     } else {
-      // Nếu đang đợi -> Vào phòng chờ
       navigate("/waiting", { state: { gameId } });
     }
   };
@@ -128,10 +139,15 @@ export const LobbyPage = () => {
       <Box p={4} className="pb-0">
         {isGuest && (
           <Text size="xSmall" className="text-cyan-600 mb-3 uppercase tracking-wider">
-            Guest — nhập mã phòng của người chơi Telegram để tham gia.
+            Guest — tạo phòng (nút +) hoặc nhập mã để tham gia. Lượt đi / thắng
+            dùng ID phiên web, không ghi profiles.
           </Text>
         )}
+        <ReconnectBanner />
         <JoinRoomCode />
+        <Button className="lobby-create" fullWidth onClick={handleCreate}>
+          Tạo phòng
+        </Button>
       </Box>
       <Tabs id="lobby-tabs">
         <Tabs.Tab key="all" label="TẤT CẢ PHÒNG" className="lobby-tabs">
@@ -175,13 +191,11 @@ export const LobbyPage = () => {
         </Tabs.Tab>
       </Tabs>
 
-      {(!isGuest || import.meta.env.DEV) && (
-        <Button
-          className="fab-button"
-          icon={<Icon icon="zi-plus" />}
-          onClick={handleCreate}
-        />
-      )}
+      <Button
+        className="fab-button"
+        icon={<Icon icon="zi-plus" />}
+        onClick={handleCreate}
+      />
     </Page>
   );
 };

@@ -193,16 +193,26 @@ export type GuestSession = {
 
 const GUEST_SESSION_KEY = "battleship_guest_session";
 
-export function loadGuestSession(): GuestSession {
+function readGuestSession(storage: Storage): GuestSession | null {
   try {
-    const raw = localStorage.getItem(GUEST_SESSION_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as GuestSession;
-      if (parsed?.id && parsed.role === "guest") return parsed;
-    }
+    const raw = storage.getItem(GUEST_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GuestSession;
+    if (parsed?.id && parsed.role === "guest") return parsed;
   } catch {
     // Ignore storage errors.
   }
+  return null;
+}
+
+/**
+ * Web player id (no telegram_id): one Guest session per browser tab.
+ * Used as host_id / members / current_turn / winner_id / boards.user_id / moves.user_id.
+ * sessionStorage so two tabs are two players; survives refresh, gone when the tab closes.
+ */
+export function loadGuestSession(): GuestSession {
+  const fromTab = readGuestSession(sessionStorage);
+  if (fromTab) return fromTab;
 
   const id = `guest_${Math.random().toString(36).slice(2, 10)}`;
   const session: GuestSession = {
@@ -211,7 +221,7 @@ export function loadGuestSession(): GuestSession {
     role: "guest",
   };
   try {
-    localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(session));
+    sessionStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(session));
   } catch {
     // Ignore storage errors.
   }

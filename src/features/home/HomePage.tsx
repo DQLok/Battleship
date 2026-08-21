@@ -3,16 +3,20 @@ import { motion } from "motion/react";
 import { Avatar, Box, Header, Page, Sheet, Text, useNavigate, useSnackbar } from "zmp-ui";
 import "@/css/features/home.scss";
 import CombatHeader from "@/components/CombatHeader";
-import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";
+import { BarChart3, Plus, Settings, Ship, Trophy, Zap } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { Profile } from "@/types/supabase/Profile";
 import { JoinRoomCode } from "@/features/lobby/components/JoinRoomCode";
+import { ReconnectBanner } from "@/features/lobby/components/ReconnectBanner";
+import { useSupabase } from "@/hooks/useSupabase";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
   const { user, isGuest } = useUser();
+  const { createRoom } = useSupabase();
+  const [creatingRoom, setCreatingRoom] = useState(false);
 
   const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
@@ -141,24 +145,53 @@ const HomePage: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Title Section - Áp dụng .neon-text */}
-        <Box className="text-center mb-4">
-          <Text className="neon-text font-headline text-3xl md:text-6xl font-black italic tracking-tighter my-2">
-            BẮN TÀU
-          </Text>
-          <Text className="font-headline text-[10px] tracking-[0.4em] uppercase opacity-60">
+        <Box className="home-title">
+          <Text className="home-title__name neon-text">BẮN TÀU</Text>
+          <Text className="home-title__subtitle">
             Fleet Command • Protocol Active
           </Text>
-        </Box>
-
-        {/* Action Buttons - Áp dụng .btn-primary-combat */}
-        <Box className="w-full max-w-sm space-y-6">
           {isGuest && (
-            <Text className="guest-hint text-center">
-              Bạn đang chơi với vai trò Guest. Mở Mini App trong Telegram để lưu tài khoản.
+            <Text className="home-title__guest">
+              Bạn đang chơi với vai trò Guest (web). ID phiên: {user?.id}. Mở
+              Mini App trong Telegram để lưu tài khoản.
             </Text>
           )}
+        </Box>
+
+        <Box className="w-full max-w-sm space-y-6">
+          <ReconnectBanner />
           <JoinRoomCode />
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-primary-combat group relative w-full py-4 rounded-sm overflow-hidden transition-all"
+            disabled={creatingRoom}
+            onClick={async () => {
+              if (!user?.id) {
+                openSnackbar({ text: "Chưa có phiên chơi." });
+                return;
+              }
+              setCreatingRoom(true);
+              const { data, error } = await createRoom(user.id);
+              setCreatingRoom(false);
+              if (error || !data) {
+                openSnackbar({
+                  text: error?.message || "Không tạo được phòng.",
+                });
+                return;
+              }
+              navigate("/waiting", { state: { gameId: data.id } });
+            }}
+          >
+            <Box className="relative flex items-center justify-center gap-3">
+              <Plus className="w-6 h-6" />
+              <Box className="font-headline text-xl font-bold tracking-widest uppercase">
+                {creatingRoom ? "Đang tạo phòng..." : "Tạo phòng"}
+              </Box>
+            </Box>
+            <Box className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-primary" />
+            <Box className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-primary" />
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}

@@ -2,48 +2,51 @@
 
 ## Hai vai trò
 
-| Role | Điều kiện | Lưu trữ |
+| Role | Điều kiện | Lưu trữ tài khoản |
 | --- | --- | --- |
-| **user** | Mở **Telegram Mini App** và đọc được `initData.user.id` | `public.profiles` (`telegram_id` unique) |
-| **guest** | Mở **web**, hoặc không có `telegram_id` | Chỉ `localStorage` — **không** insert `profiles` |
+| **user** | Mini App Telegram + có `initData.user.id` | `public.profiles.telegram_id` |
+| **guest** | Web, hoặc không đọc được `telegram_id` | **Không** insert `profiles`. Chỉ session tab. |
 
-Gate đăng ký DB: `canPersistTelegramUser()` = `hadRealTelegramAtLoad()` **và** có `getTelegramId()`. Mock env trên browser không được coi là user Telegram.
+Gate DB: `canPersistTelegramUser()` = `hadRealTelegramAtLoad()` **và** `getTelegramId()`.
 
-## Luồng start app
+## Player id (định danh trong trận)
 
-1. `src/app.ts` init Telegram SDK (xem [telegram-init.md](./telegram-init.md)).
-2. `UserProvider` gọi `ensureSession()` (`src/api/ensureProfile.ts`).
-3. **User**: `SELECT profiles WHERE telegram_id = ?`
-   - Có → `UPDATE` field public (không đụng `wins` / `total_games`).
-   - Không → `INSERT` (`id` = `telegram_id` = Telegram user id dạng text).
-4. **Guest**: `loadGuestSession()` → id `guest_xxxxxxxx`, username `Guest_XXXX`, ghi `localStorage` key `battleship_guest_session`.
+Mọi chỗ gameplay dùng **một chuỗi `player id`** = `useUser().user.id`:
 
-Context: `useUser()` → `{ user, role, isGuest, loading }` (`src/context/UserContext.tsx`).
+| Nguồn | `user.id` |
+| --- | --- |
+| Telegram | `String(telegram user.id)` (= `profiles.id` = `telegram_id`) |
+| Web | `guest_` + 8 ký tự, **mỗi tab một id** (`sessionStorage` key `battleship_guest_session`) |
+
+Cùng id đó ghi vào:
+
+- `games.host_id`, `games.members[]`
+- `games.current_turn` — so sánh `current_turn === user.id` để biết lượt mình
+- `games.winner_id` — người thắng (host hoặc guest đều là string id)
+- `game_boards.user_id`, `moves.user_id`
+
+Không cần `telegram_id` để tạo phòng / đánh / kết thúc trận. `telegram_id` chỉ để **nhận diện tài khoản** và cộng `wins`.
+
+Hai tab cùng máy = hai guest (sessionStorage). Đóng tab là mất phiên.
+
+## Luồng start
+
+1. Init Telegram SDK ([telegram-init.md](./telegram-init.md)).
+2. `ensureSession()` (`src/api/ensureProfile.ts`).
+3. **User**: lookup/update/insert `profiles` theo `telegram_id`.
+4. **Guest**: `loadGuestSession()` → không gọi insert `profiles`.
+
+`useUser()` → `{ user, role, isGuest, loading }`.
 
 ## `public.profiles`
 
-| Cột | Ý nghĩa |
-| --- | --- |
-| `id` | PK dùng trong `games.members`, boards, moves |
-| `telegram_id` | Unique, lookup khi mở Mini App |
-| `username` | Display (`@username` hoặc first+last) |
-| `telegram_username`, `first_name`, `last_name` | Public từ Telegram |
-| `avatar_url` | `photo_url` nếu Telegram gửi |
-| `language_code`, `is_premium`, `allows_write_to_pm` | Public optional |
-| `wins`, `total_games` | Thành tích (guest = 0, không persist) |
+Chỉ user Telegram. Cột: `id`, `telegram_id` (unique), username, first/last, avatar, language, premium, `wins`, `total_games`. Không lưu SĐT / hash.
 
-Không lưu SĐT, hash `initData`, hay secret.
+`finish_game` cộng stats **chỉ khi** `winner_id` / board `user_id` trùng một hàng `profiles`. Guest thắng hợp lệ: `games.winner_id` vẫn đúng, BXH không đổi. **Out/back giữa trận:** `forfeit_game_on_leave` — +`total_games` mỗi member, không +`wins`.
 
-## Guest trong gameplay
-
-- Không tạo phòng trên production (FAB ẩn). Local `npm run dev` vẫn cho tạo để test.
-- Tham gia phòng của user: **nhập `room_code`** (Home + Lobby).
-- Guest id được đưa vào `games.members` (text). Schema không FK `members` / boards / moves → `profiles`, nên guest chơi được mà không có hàng profile.
-- `finish_game` tăng `wins`/`total_games` chỉ khi `user_id` trùng `profiles.id` — guest bỏ qua.
+Dọn phòng guest và cấm lưu lịch sử kiểu tài khoản: [rules.md](./rules.md) §1–2.
 
 ## File
 
-- `src/api/ensureProfile.ts` — `ensureSession()`
-- `src/utils/user-info.ts` — Telegram mapping, guest session, URL hash
-- `src/types/supabase/Profile.ts`
-- Migrations: `20260819000000_profiles_telegram_public.sql`, `20260819000001_profiles_telegram_id.sql`, `20260819000002_guest_sessions_and_room_code.sql`
+- `src/api/ensureProfile.ts`, `src/utils/user-info.ts`, `src/context/UserContext.tsx`
+- `src/types/supabase/Profile.ts`, `Game.ts`

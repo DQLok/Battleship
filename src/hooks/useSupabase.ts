@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useSnackbar } from "zmp-ui";
+import { savePendingReconnect } from "@/utils/pending-reconnect";
+import { useGameLifecycle } from "@/context/GameLifecycleContext";
+import { GAME_LIFECYCLE_DEFAULTS } from "@/constants/game-lifecycle";
 
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -18,6 +21,11 @@ export const useSupabase = () => {
   const [loading, setLoading] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const { openSnackbar } = useSnackbar();
+  const { settings: lifecycle } = useGameLifecycle();
+  const reconnectGrace =
+    lifecycle.reconnect_grace ?? GAME_LIFECYCLE_DEFAULTS.reconnect_grace;
+  const maxMembers1vs1 =
+    lifecycle.max_members_1vs1 ?? GAME_LIFECYCLE_DEFAULTS.max_members_1vs1;
 
   const incrementMyTotalGames = async (userId: string) => {
     // Best-effort client-side increment.
@@ -79,6 +87,9 @@ export const useSupabase = () => {
 
   // 2. Tạo phòng mới
   const createRoom = async (userId: string) => {
+    if (!userId) {
+      return { data: null, error: { message: "Thiếu player id." } };
+    }
     let lastError: { message?: string } | null = null;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const { data, error } = await supabase
@@ -97,11 +108,43 @@ export const useSupabase = () => {
 
       if (!error && data) return { data, error: null };
       lastError = error;
-      if (error && !String(error.message || "").toLowerCase().includes("duplicate")) {
-        return { data: null, error };
+      const code = (error as { code?: string } | null)?.code;
+      const msg = String(error?.message || "");
+      if (code === "23505" && msg.includes("unique_waiting_room_per_user")) {
+        const { data: existing } = await supabase
+          .from("games")
+          .select("*")
+          .eq("host_id", userId)
+          .eq("status", "waiting")
+          .maybeSingle();
+        if (!existing) continue;
+        const others = (existing.members || []).filter(
+          (id: string) => id && id !== userId
+        );
+        if (others.length === 0) {
+          await supabase.from("games").delete().eq("id", existing.id);
+          continue;
+        }
+        return { data: existing, error: null };
       }
+      if (code === "23505" || msg.toLowerCase().includes("duplicate")) {
+        continue;
+      }
+      return { data: null, error };
     }
     return { data: null, error: lastError };
+  };
+
+  const leaveRoom = async (gameId: string, userId: string) => {
+    if (!gameId || gameId === "###" || !userId) {
+      return { error: null };
+    }
+    const { error } = await supabase.rpc("leave_game_room", {
+      room_id: gameId,
+      leaving_user_id: userId,
+    });
+    if (error) console.error("Lỗi rời phòng:", error.message);
+    return { error };
   };
 
   // 5. Xóa phòng (Chỉ dành cho chủ phòng)
@@ -136,15 +179,72 @@ export const useSupabase = () => {
       .from("games")
       .select("*")
       .eq("room_code", roomCode)
-      .in("status", ["waiting", "playing"])
+      .in("status", ["waiting", "setup", "playing"])
       .maybeSingle();
 
     if (error) return { data: null, error };
     if (!data) return { data: null, error: { message: "Không tìm thấy phòng." } };
 
+    const graceActive =
+      data.disconnected_user_id &&
+      data.reconnect_until &&
+      new Date(data.reconnect_until).getTime() > Date.now();
+
+    if (
+      graceActive &&
+      data.disconnected_user_id !== userId &&
+      !(data.members || []).includes(userId)
+    ) {
+      return {
+        data: null,
+        error: { message: "Phòng đang chờ người chơi kết nối lại." },
+      };
+    }
+
+    if (graceActive && data.disconnected_user_id === userId) {
+      const { ok, error: reconnectErr } = await reconnectToGame(data.id, userId);
+      if (reconnectErr || !ok) {
+        return {
+          data: null,
+          error: reconnectErr || { message: "Hết thời gian kết nối lại." },
+        };
+      }
+      const { data: refreshed } = await supabase
+        .from("games")
+        .select("*")
+        .eq("id", data.id)
+        .single();
+      return { data: refreshed || data, error: null };
+    }
+
     const alreadyIn =
       data.host_id === userId || (data.members || []).includes(userId);
+
+    // setup / playing: chỉ member hiện có được vào lại; không nhận người mới.
+    if (!alreadyIn && (data.status === "setup" || data.status === "playing")) {
+      return {
+        data: null,
+        error: {
+          message:
+            data.status === "setup"
+              ? "Phòng đang dàn trận. Chỉ thành viên mới vào lại được."
+              : "Phòng đang chiến đấu. Chỉ thành viên mới vào lại được.",
+        },
+      };
+    }
+
     if (!alreadyIn) {
+      // 1vs1 rooms are limited to 2 members.
+      if (
+        (data.game_mode ?? "1vs1") === "1vs1" &&
+        (data.members?.length ?? 0) >= maxMembers1vs1
+      ) {
+        return {
+          data: null,
+          error: { message: `Phòng (1vs1) đã đủ ${maxMembers1vs1} người.` },
+        };
+      }
+
       const { error: joinError } = await joinRoom(data.id, userId);
       if (joinError) return { data: null, error: joinError };
     }
@@ -251,8 +351,7 @@ export const useSupabase = () => {
   };
 
   const resetGameToWaiting = async (gameId: string) => {
-    // Reset trạng thái phòng để quay lại "waiting" và buộc mọi người ready lại.
-    // Đồng thời dọn dữ liệu trận (moves/boards) theo best-effort.
+    // Về phòng chờ (lobby waiting). Dùng sau khi một người out hẳn.
     const { error: gameErr } = await supabase
       .from("games")
       .update({
@@ -260,10 +359,31 @@ export const useSupabase = () => {
         current_turn: null,
         winner_id: null,
         ready_members: [],
+        disconnected_user_id: null,
+        reconnect_until: null,
       })
       .eq("id", gameId);
 
-    // Best-effort cleanup. Nếu RLS không cho phép thì bỏ qua.
+    await supabase.from("moves").delete().eq("game_id", gameId);
+    await supabase.from("game_boards").delete().eq("game_id", gameId);
+
+    return { error: gameErr ?? null };
+  };
+
+  /** Rematch / rút quân: cả hai ở lại Combat, quay lại dàn tàu (setup). */
+  const resetGameToSetup = async (gameId: string) => {
+    const { error: gameErr } = await supabase
+      .from("games")
+      .update({
+        status: "setup",
+        current_turn: null,
+        winner_id: null,
+        ready_members: [],
+        disconnected_user_id: null,
+        reconnect_until: null,
+      })
+      .eq("id", gameId);
+
     await supabase.from("moves").delete().eq("game_id", gameId);
     await supabase.from("game_boards").delete().eq("game_id", gameId);
 
@@ -296,60 +416,129 @@ export const useSupabase = () => {
       await incrementWinsAndTotalGames(opponentId);
     }
 
-    // 3) Reset dữ liệu trận để sắp xếp lại tàu và chơi trận mới (không ai rời phòng)
-    const resetRes = await resetGameToWaiting(gameId);
+    // 3) Reset về setup để sắp xếp lại tàu (không ai rời phòng)
+    const resetRes = await resetGameToSetup(gameId);
     return { error: resetRes.error, opponentId };
+  };
+
+  const requestLeaveWithReconnect = async (params: {
+    gameId: string;
+    userId: string;
+    graceSeconds?: number;
+  }) => {
+    const {
+      gameId,
+      userId,
+      graceSeconds = reconnectGrace,
+    } = params;
+
+    const { data: gameRow } = await supabase
+      .from("games")
+      .select("status, room_code")
+      .eq("id", gameId)
+      .maybeSingle();
+
+    if (gameRow?.status !== "playing") {
+      return leaveBattle({ gameId, userId });
+    }
+
+    const { error } = await supabase.rpc("request_leave_with_reconnect", {
+      p_game_id: gameId,
+      p_user_id: userId,
+      p_grace_seconds: graceSeconds,
+    });
+    if (error) {
+      console.error("request_leave_with_reconnect:", error.message);
+      return { error, roomCode: null as string | null };
+    }
+
+    const until = new Date(Date.now() + graceSeconds * 1000).toISOString();
+    const roomCode = gameRow.room_code || "";
+    savePendingReconnect({ gameId, roomCode, until });
+    return { error: null, roomCode };
+  };
+
+  const reconnectToGame = async (gameId: string, userId?: string) => {
+    const { data: gameRow } = await supabase
+      .from("games")
+      .select("disconnected_user_id, members")
+      .eq("id", gameId)
+      .maybeSingle();
+
+    const resolvedUserId =
+      userId ||
+      gameRow?.disconnected_user_id ||
+      gameRow?.members?.[0] ||
+      "";
+
+    if (!resolvedUserId) {
+      return { ok: false, error: { message: "Thiếu player id." } };
+    }
+
+    const { data: ok, error } = await supabase.rpc("reconnect_to_game", {
+      p_game_id: gameId,
+      p_user_id: resolvedUserId,
+    });
+
+    if (error) {
+      console.error("reconnect_to_game:", error.message);
+      return { ok: false, error };
+    }
+
+    return { ok: Boolean(ok), error: null };
+  };
+
+  const finalizeDisconnectedLeave = async (
+    gameId: string,
+    force = false
+  ) => {
+    const { error } = await supabase.rpc("finalize_disconnected_leave", {
+      p_game_id: gameId,
+      p_force: force,
+    });
+    if (error) console.error("finalize_disconnected_leave:", error.message);
+    return { error };
   };
 
   const leaveBattle = async (params: {
     gameId: string;
     userId: string;
-    isHost: boolean;
   }) => {
-    const { gameId, userId, isHost } = params;
+    const { gameId, userId } = params;
 
-    // 1) Người rời luôn bị tính 1 trận tham gia (không cộng win cho ai).
-    await incrementMyTotalGames(userId);
+    const { data: gameRow } = await supabase
+      .from("games")
+      .select("status, members")
+      .eq("id", gameId)
+      .maybeSingle();
 
-    // 2) Cập nhật phòng tuỳ vai trò
-    if (isHost) {
-      // Host rời: giữ members, reset về waiting để cả phòng quay lại phòng chờ.
-      return await resetGameToWaiting(gameId);
+    const wasPlaying = gameRow?.status === "playing";
+
+    if (wasPlaying) {
+      const { error: forfeitErr } = await supabase.rpc("forfeit_game_on_leave", {
+        p_game_id: gameId,
+      });
+      if (forfeitErr) {
+        console.error("forfeit_game_on_leave:", forfeitErr.message);
+        return { error: forfeitErr };
+      }
     }
 
-    // Member rời: remove khỏi phòng, đồng thời reset phòng về waiting cho người còn lại.
-    await handleRemoveMemberFromDB(userId, gameId);
-    return await resetGameToWaiting(gameId);
+    await leaveRoom(gameId, userId);
+
+    const { data: stillThere } = await supabase
+      .from("games")
+      .select("id")
+      .eq("id", gameId)
+      .maybeSingle();
+    if (!stillThere) return { error: null };
+
+    const resetRes = await resetGameToWaiting(gameId);
+    return { error: resetRes.error };
   };
 
-  const handleRemoveMemberFromDB = async (userId, gameId) => {
-    // 1. Lấy dữ liệu hiện tại của game
-    const { data: currentGame } = await supabase
-      .from("games")
-      .select("members, ready_members")
-      .eq("id", gameId)
-      .single();
-
-    if (currentGame) {
-      // 2. Loại bỏ userId khỏi cả hai mảng
-      const newMembers = (currentGame.members || []).filter(
-        (id) => id !== userId
-      );
-      const newReadyMembers = (currentGame.ready_members || []).filter(
-        (id) => id !== userId
-      );
-
-      // 3. Cập nhật lại Database
-      const { error } = await supabase
-        .from("games")
-        .update({
-          members: newMembers,
-          ready_members: newReadyMembers,
-        })
-        .eq("id", gameId);
-
-      if (error) console.error("Lỗi khi xóa người chơi:", error.message);
-    }
+  const handleRemoveMemberFromDB = async (userId: string, gameId: string) => {
+    await leaveRoom(gameId, userId);
   };
 
   // 4. Realtime Subscription (Lắng nghe thay đổi)
@@ -380,8 +569,13 @@ export const useSupabase = () => {
     saveShipLayout,
     finishGame,
     subscribePresence,
+    leaveRoom,
+    requestLeaveWithReconnect,
+    reconnectToGame,
+    finalizeDisconnectedLeave,
     leaveBattle,
     resetGameToWaiting,
+    resetGameToSetup,
     surrenderAndResetForRematch,
     handleRemoveMemberFromDB,
   };

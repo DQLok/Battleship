@@ -27,6 +27,12 @@ import { ShipDragGhost } from "./components/ShipDragGhost";
 
 import "@/css/features/combat.scss";
 import { GameBoard } from "@/types/supabase/GameBoard";
+import { Game } from "@/types/supabase/Game";
+import {
+  clearPendingReconnect,
+} from "@/utils/pending-reconnect";
+import { useGameLifecycle } from "@/context/GameLifecycleContext";
+import { GAME_LIFECYCLE_DEFAULTS } from "@/constants/game-lifecycle";
 
 const CombatPage: React.FC = () => {
   const { user } = useUser();
@@ -37,11 +43,18 @@ const CombatPage: React.FC = () => {
     finishGame,
     isFinishing,
     subscribePresence,
-    leaveBattle,
+    requestLeaveWithReconnect,
+    finalizeDisconnectedLeave,
+    reconnectToGame,
+    leaveRoom,
     surrenderAndResetForRematch,
-  } =
-    useSupabase();
+  } = useSupabase();
   const { openSnackbar } = useSnackbar();
+  const { settings: lifecycle } = useGameLifecycle();
+  const reconnectGrace =
+    lifecycle.reconnect_grace ?? GAME_LIFECYCLE_DEFAULTS.reconnect_grace;
+  const presenceAway =
+    lifecycle.presence_away ?? GAME_LIFECYCLE_DEFAULTS.presence_away;
 
   const {
     game,
@@ -64,17 +77,29 @@ const CombatPage: React.FC = () => {
   const [inBattle, setInBattle] = useState(false);
   const [isReadySent, setIsReadySent] = useState(false);
   const [isOpponentAway, setIsOpponentAway] = useState(false);
-  const [countdown, setCountdown] = useState(20);
+  const [countdown, setCountdown] = useState(presenceAway);
   const [isGracePeriod, setIsGracePeriod] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [serverGame, setServerGame] = useState<any>(null);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [serverGame, setServerGame] = useState<Game | null>(null);
+  const [reconnectCountdown, setReconnectCountdown] = useState<number | null>(
+    null
+  );
   const leavingSelfRef = useRef(false);
-  const lastGameSnapshotRef = useRef<any>(null);
+  const lastGameSnapshotRef = useRef<Game | null>(null);
   const rematchResetRef = useRef(false);
+  const finalizeReconnectRef = useRef(false);
 
   const gameId = state?.gameId || game?.id || "ROOM_TEST_01";
   const botMode = isBotMode || gameId === "###";
   const isReadyToStart = useMemo(() => placedShips.length === 4, [placedShips]);
+  const waitingOpponentReconnect = Boolean(
+    !botMode &&
+      serverGame?.disconnected_user_id &&
+      serverGame.disconnected_user_id !== user?.id &&
+      serverGame.reconnect_until &&
+      new Date(serverGame.reconnect_until).getTime() > Date.now()
+  );
 
   useEffect(() => {
     if (gameId === "###" && !isBotMode) {
@@ -92,40 +117,43 @@ const CombatPage: React.FC = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` },
         (payload) => {
-          const updated = payload.new as any;
+          const updated = payload.new as Game;
           const prev = lastGameSnapshotRef.current;
           setServerGame(updated);
           lastGameSnapshotRef.current = updated;
 
-          // Host sees snackbar when opponent leaves (room resets to waiting),
-          // but not when host initiated the leave.
           if (
-            updated?.status === "waiting" &&
-            prev?.status === "playing" &&
-            user.id === updated?.host_id &&
-            !leavingSelfRef.current
+            updated.disconnected_user_id &&
+            updated.disconnected_user_id !== user.id &&
+            !prev?.disconnected_user_id
           ) {
-            const prevMembers: string[] = prev?.members || [];
-            const nextMembers: string[] = updated?.members || [];
-            const someoneLeft = nextMembers.length < prevMembers.length;
-            if (someoneLeft) {
-              openSnackbar({
-                text: "Đối thủ đã rời phòng. Quay lại phòng chờ để sẵn sàng lại.",
-              });
-            }
+            openSnackbar({
+              text: `Đối thủ mất kết nối. Chờ ${reconnectGrace}s để họ vào lại.`,
+            });
           }
 
-          // Nếu host reset phòng (host thoát) hoặc member thoát -> phòng về waiting.
-          if (updated?.status === "waiting") {
+          if (
+            prev?.disconnected_user_id &&
+            !updated.disconnected_user_id &&
+            updated.status === "playing"
+          ) {
+            finalizeReconnectRef.current = false;
+            openSnackbar({ text: "Đối thủ đã kết nối lại." });
+          }
+
+          if (updated?.status === "waiting" || updated?.status === "setup") {
             const members: string[] = updated?.members || [];
             const stillInRoom = members.includes(user.id) || updated?.host_id === user.id;
 
-            // Rematch reset (surrender) case: keep both players on CombatPage, reset local board/placement.
-            // Detect by: still in room AND no one left.
+            // Rematch (rút quân): playing → setup, cùng members → ở lại Combat dàn trận.
             const prevMembers: string[] = prev?.members || [];
             const noOneLeft = members.length === prevMembers.length;
-            if (stillInRoom && prev?.status === "playing" && noOneLeft) {
-              // reset local combat state to allow re-arranging ships
+            if (
+              stillInRoom &&
+              prev?.status === "playing" &&
+              updated?.status === "setup" &&
+              noOneLeft
+            ) {
               resetShips();
               setEnemyShips([]);
               setTurn(true);
@@ -140,11 +168,12 @@ const CombatPage: React.FC = () => {
               return;
             }
 
-            if (stillInRoom) {
-              // Replace history so Back from waiting returns to lobby (not combat)
-              navigate("/waiting", { state: { gameId }, replace: true });
-            } else {
-              navigate("/lobby", { replace: true });
+            if (updated?.status === "waiting") {
+              if (stillInRoom) {
+                navigate("/waiting", { state: { gameId }, replace: true });
+              } else {
+                navigate("/lobby", { replace: true });
+              }
             }
           }
         }
@@ -155,8 +184,16 @@ const CombatPage: React.FC = () => {
     (async () => {
       const { data } = await supabase.from("games").select("*").eq("id", gameId).maybeSingle();
       if (data) {
-        setServerGame(data);
-        lastGameSnapshotRef.current = data;
+        setServerGame(data as Game);
+        lastGameSnapshotRef.current = data as Game;
+        if (
+          data.disconnected_user_id === user.id &&
+          data.reconnect_until &&
+          new Date(data.reconnect_until).getTime() > Date.now()
+        ) {
+          const { ok } = await reconnectToGame(gameId, user.id);
+          if (ok) clearPendingReconnect();
+        }
       }
     })();
 
@@ -164,6 +201,35 @@ const CombatPage: React.FC = () => {
       supabase.removeChannel(gameChannel);
     };
   }, [gameId, user?.id, botMode]);
+
+  useEffect(() => {
+    if (!waitingOpponentReconnect || !serverGame?.reconnect_until) {
+      setReconnectCountdown(null);
+      return;
+    }
+    const tick = () => {
+      const left = Math.ceil(
+        (new Date(serverGame.reconnect_until!).getTime() - Date.now()) / 1000
+      );
+      setReconnectCountdown(Math.max(0, left));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [waitingOpponentReconnect, serverGame?.reconnect_until]);
+
+  useEffect(() => {
+    if (
+      reconnectCountdown !== 0 ||
+      !waitingOpponentReconnect ||
+      finalizeReconnectRef.current ||
+      !gameId
+    ) {
+      return;
+    }
+    finalizeReconnectRef.current = true;
+    void finalizeDisconnectedLeave(gameId, true);
+  }, [reconnectCountdown, waitingOpponentReconnect, gameId]);
 
   useEffect(() => {
     if (inBattle) {
@@ -183,13 +249,13 @@ const CombatPage: React.FC = () => {
       () => setIsOpponentAway(true), // Đối thủ mất kết nối
       () => {
         setIsOpponentAway(false);
-        setCountdown(20);
+        setCountdown(presenceAway);
       }
     );
     return () => {
       channel.unsubscribe();
     };
-  }, [gameId, user?.id, botMode, inBattle]);
+  }, [gameId, user?.id, botMode, inBattle, presenceAway]);
 
   // Logic đếm ngược khi đối thủ vắng mặt
   // Bước 1: Chỉ làm nhiệm vụ giảm số countdown
@@ -200,10 +266,10 @@ const CombatPage: React.FC = () => {
         setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
     } else {
-      setCountdown(20); // Reset nếu đối thủ quay lại hoặc game xong
+      setCountdown(presenceAway); // Reset nếu đối thủ quay lại hoặc game xong
     }
     return () => clearInterval(interval);
-  }, [inBattle, isOpponentAway, botMode, isGracePeriod, winner]);
+  }, [inBattle, isOpponentAway, botMode, isGracePeriod, winner, presenceAway]);
 
   // Bước 2: Theo dõi countdown chạm 0 để xử thắng (Hết lỗi kẹt countdown)
   useEffect(() => {
@@ -273,10 +339,19 @@ const CombatPage: React.FC = () => {
   useEffect(() => {
     if (isReadySent && enemyShips.length > 0 && !inBattle) {
       setInBattle(true);
-      setTurn(true); // Hoặc logic lượt đi của bạn
+      setTurn(true);
+      if (!botMode && gameId && gameId !== "###") {
+        void supabase
+          .from("games")
+          .update({
+            status: "playing",
+            current_turn: serverGame?.host_id || user?.id || null,
+          })
+          .eq("id", gameId);
+      }
       openSnackbar({ text: "HÀNH QUÂN! ĐỐI THỦ ĐÃ VÀO VỊ TRÍ." });
     }
-  }, [isReadySent, enemyShips, inBattle]);
+  }, [isReadySent, enemyShips, inBattle, botMode, gameId, serverGame?.host_id, user?.id]);
 
   // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
   //Thêm useEffect này bên dưới cái Realtime của bạn
@@ -290,8 +365,11 @@ const CombatPage: React.FC = () => {
             }`,
           });
         } else {
-          // Winner ID: Nếu mình thắng thì là user.id, nếu địch thắng thì là opponentId
-          const winnerId = winner === "player" ? user?.id : ""; //opponentId;
+          const myId = user?.id;
+          const opponentId = (serverGame?.members || []).find(
+            (id: string) => id && id !== myId
+          );
+          const winnerId = winner === "player" ? myId : opponentId;
 
           if (winnerId) {
             await finishGame(gameId, winnerId);
@@ -301,7 +379,7 @@ const CombatPage: React.FC = () => {
     };
 
     handleCleanUp();
-  }, [winner, gameId]);
+  }, [winner, gameId, botMode, serverGame, user?.id]);
 
   useEffect(() => {
     // Hàm này sẽ chạy khi user nhấn nút Back của Zalo hoặc nút Back vật lý
@@ -350,25 +428,17 @@ const CombatPage: React.FC = () => {
       return;
     }
 
-    const isHost = (serverGame?.host_id && serverGame.host_id === user.id) || false;
-
-    // Rời trận: người rời bị tính 1 trận tham gia.
-    // - Host rời: reset phòng về waiting => tất cả còn lại về waiting.
-    // - Member rời: member về lobby, host/những người còn lại về waiting.
     try {
       leavingSelfRef.current = true;
-      await leaveBattle({ gameId, userId: user.id, isHost });
+      await requestLeaveWithReconnect({ gameId, userId: user.id });
+      openSnackbar({
+        text: `Đã rời trận. Bạn có ${reconnectGrace}s để kết nối lại (mã phòng hoặc nút trên Home).`,
+      });
     } finally {
-      // allow future snackbars for subsequent sessions
       leavingSelfRef.current = false;
       resetShips();
       setInBattle(false);
-      if (isHost) {
-        // Replace history so Back from waiting returns to lobby (not combat)
-        navigate("/waiting", { state: { gameId }, replace: true });
-      } else {
-        navigate("/lobby", { replace: true });
-      }
+      navigate("/lobby", { replace: true });
     }
   };
 
@@ -388,7 +458,14 @@ const CombatPage: React.FC = () => {
 
     try {
       rematchResetRef.current = true;
-      await surrenderAndResetForRematch({ gameId, loserId: user.id });
+      const { error } = await surrenderAndResetForRematch({
+        gameId,
+        loserId: user.id,
+      });
+      if (error) {
+        rematchResetRef.current = false;
+        openSnackbar({ text: "Không thể rút quân lúc này. Vui lòng thử lại." });
+      }
     } catch (e) {
       rematchResetRef.current = false;
       openSnackbar({ text: "Không thể rút quân lúc này. Vui lòng thử lại." });
@@ -397,7 +474,7 @@ const CombatPage: React.FC = () => {
 
   // --- 3. LOGIC BẮN ---
   const handleAttackEnemy = async (x: number, y: number) => {
-    if (!inBattle || !turn || isFinishing) return;
+    if (!inBattle || !turn || isFinishing || waitingOpponentReconnect) return;
     if (!botMode && !user) return;
 
     const attackerId = user?.id || "guest_user";
@@ -503,6 +580,13 @@ const CombatPage: React.FC = () => {
       setEnemyShips(opponent.ships_data);
       setInBattle(true);
       setTurn(false);
+      await supabase
+        .from("games")
+        .update({
+          status: "playing",
+          current_turn: serverGame?.host_id || user.id,
+        })
+        .eq("id", gameId);
       openSnackbar({ text: "CHIẾN DỊCH BẮT ĐẦU!" });
     } else {
       openSnackbar({ text: "Đang đợi đối thủ dàn trận..." });
@@ -530,12 +614,16 @@ const CombatPage: React.FC = () => {
         backgroundColor="#061421"
         // Nếu đang trong trận, ẩn nút back mặc định, buộc dùng nút Rút quân hoặc nút vật lý
         showBackIcon={!inBattle}
-        onBackClick={() => {
+        onBackClick={async () => {
           if (inBattle && !winner) {
             setShowExitConfirm(true);
             return;
           }
-          navigate("/lobby");
+          // Rời lúc dàn tàu (setup): leave room rồi về lobby
+          if (!botMode && user?.id && gameId && gameId !== "###") {
+            await leaveRoom(gameId, user.id);
+          }
+          navigate("/lobby", { replace: true });
         }}
       />
 
@@ -637,7 +725,7 @@ const CombatPage: React.FC = () => {
               fullWidth
               variant="secondary"
               className="mt-4 text-red-900/50 text-[9px] border-none"
-              onClick={() => setShowExitConfirm(true)}
+              onClick={() => setShowSurrenderConfirm(true)}
             >
               RÚT QUÂN (SURRENDER)
             </Button>
@@ -721,10 +809,9 @@ const CombatPage: React.FC = () => {
 
           <Box mb={6}>
             <Text className="text-cyan-400 text-center">
-              Chỉ huy rút lui sẽ bị coi là
-              <span className="text-red-500 font-bold"> TỰ HỦY </span>
-              và chiến dịch{" "}
-              <span className="text-red-500 font-bold">THẤT BẠI</span>.
+              Rời trận tạm thời. Đối thủ chờ{" "}
+              <span className="text-white font-bold">{reconnectGrace}s</span>{" "}
+              để bạn kết nối lại — không cộng win cho ai.
             </Text>
           </Box>
 
@@ -743,15 +830,78 @@ const CombatPage: React.FC = () => {
               className="bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]"
               onClick={async () => {
                 setShowExitConfirm(false);
-                // Back/exit confirm during battle keeps previous behavior (leave room logic)
                 await handleLeaveBattle();
               }}
             >
-              NHẬN THUA
+              RỜI TRẬN
             </Button>
           </Box>
         </Box>
       </Sheet>
+
+      <Sheet
+        visible={showSurrenderConfirm}
+        onClose={() => setShowSurrenderConfirm(false)}
+        autoHeight
+        mask
+        handler
+        swipeToClose
+      >
+        <Box p={4} className="bg-[#061421]">
+          <Box mb={4} flex flexDirection="column" alignItems="center">
+            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mb-2">
+              <Icon icon="zi-warning-solid" className="text-red-500" />
+            </div>
+            <Text.Title className="text-red-500 font-black">
+              RÚT QUÂN
+            </Text.Title>
+          </Box>
+
+          <Box mb={6}>
+            <Text className="text-cyan-400 text-center">
+              Xác nhận rút quân sẽ{" "}
+              <span className="text-red-500 font-bold">xử thua</span> trận này
+              (đối thủ +win). Cả hai ở lại phòng và dàn trận lại.
+            </Text>
+          </Box>
+
+          <Box flex flexDirection="row">
+            <Button
+              fullWidth
+              variant="secondary"
+              className="border-cyan-500 text-cyan-500"
+              onClick={() => setShowSurrenderConfirm(false)}
+            >
+              HỦY
+            </Button>
+            <Button
+              fullWidth
+              type="danger"
+              className="bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]"
+              onClick={async () => {
+                setShowSurrenderConfirm(false);
+                await handleSurrenderForRematch();
+              }}
+            >
+              XÁC NHẬN THUA
+            </Button>
+          </Box>
+        </Box>
+      </Sheet>
+
+      {waitingOpponentReconnect && (
+        <Box className="absolute inset-0 z-[98] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="p-6 border-2 border-cyan-500 bg-[#061421] rounded-lg text-center shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+            <Text className="text-cyan-400 font-black animate-pulse mb-2">
+              ĐỐI THỦ MẤT KẾT NỐI
+            </Text>
+            <Text size="small" className="text-cyan-300">
+              Chờ kết nối lại:{" "}
+              <span className="text-white text-xl">{reconnectCountdown ?? "…"}s</span>
+            </Text>
+          </div>
+        </Box>
+      )}
 
       {isOpponentAway && inBattle && !isGracePeriod && (
         <Box className="absolute inset-0 z-[99] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Icon,
   useNavigate,
@@ -54,7 +54,7 @@ function mergeMemberProfiles(
 export const WaitingRoom = () => {
   const navigate = useNavigate();
   const { state } = useLocation(); // Giả sử bạn truyền gameId qua đây
-  const { handleRemoveMemberFromDB } = useSupabase();
+  const { leaveRoom } = useSupabase();
   const gameId = state?.gameId || "###";
 
   const [game, setGame] = useState<any>(null);
@@ -62,6 +62,9 @@ export const WaitingRoom = () => {
   const [myId, setMyId] = useState("");
   const { user } = useUser();
   const { openSnackbar } = useSnackbar();
+  const skipLeaveRef = useRef(false);
+  const gameRef = useRef(game);
+  gameRef.current = game;
 
   // Thêm vào trong component WaitingRoom
   const toggleGameMode = async () => {
@@ -113,18 +116,18 @@ export const WaitingRoom = () => {
         openSnackbar({ text: "Chờ tất cả người chơi sẵn sàng!" });
         return;
       }
-      // --- KỊCH BẢN CHO HOST: BẮT ĐẦU GAME ---
+      // --- HOST: vào giai đoạn dàn tàu (setup), chưa bắn ---
       const { error } = await supabase
         .from("games")
         .update({
-          status: "playing",
-          current_turn: myId, // Host đi trước
+          status: "setup",
+          current_turn: null,
+          ready_members: [],
         })
         .eq("id", gameId);
 
       if (!error) {
-        // Sau khi update, dùng Realtime để tất cả cùng chuyển trang
-        // hoặc navigate trực tiếp cho host
+        skipLeaveRef.current = true;
         navigate("/combat", { state: { gameId } });
       }
     } else {
@@ -198,36 +201,44 @@ export const WaitingRoom = () => {
             setPlayers(mergeMemberProfiles(updatedGame.members, profiles, user));
           }
 
-          if (updatedGame.status === "playing") {
+          if (
+            updatedGame.status === "setup" ||
+            updatedGame.status === "playing"
+          ) {
+            skipLeaveRef.current = true;
             navigate("/combat", { state: { gameId } });
           }
         }
       )
-      // --- THÊM LOGIC PRESENCE TẠI ĐÂY ---
-      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        if (game.host_id !== myId) {
-          handleRemoveMemberFromDB(myId, gameId);
-        }
-      })
       .subscribe();
 
+    const onPageHide = () => {
+      if (skipLeaveRef.current) return;
+      const st = gameRef.current?.status;
+      if (st === "setup" || st === "playing") return;
+      if (user.id && gameId !== "###") {
+        void leaveRoom(gameId, user.id);
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+
     return () => {
-      onLeaveRoom();
+      window.removeEventListener("pagehide", onPageHide);
       supabase.removeChannel(channel);
+      if (skipLeaveRef.current) return;
+      const st = gameRef.current?.status;
+      if (st === "setup" || st === "playing") return;
+      void leaveRoom(gameId, user.id);
     };
   }, [gameId, user]);
 
   const onLeaveRoom = async () => {
-    if (!user) return;
-    if (myId && gameId !== "###") {
-      if (game?.host_id !== myId) {
-        await handleRemoveMemberFromDB(myId, gameId);
-      }
-    }
+    if (!user?.id || gameId === "###") return;
+    await leaveRoom(gameId, user.id);
   };
 
   return (
-    <Page className="min-h-screen pt-24 bg-[#05161A] text-cyan-400 font-mono p-4 flex flex-col relative overflow-hidden">
+    <Page className="waiting-page">
       {/* Header */}
       <Header
         title="BATTLE LOBBY"
@@ -240,12 +251,12 @@ export const WaitingRoom = () => {
         }}
       />
       {/* Room ID Box */}
-      <Box className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-center">
+      <Box className="bg-[#07242B] border border-cyan-900 p-3 mb-2 flex justify-between items-start">
         <Box>
-          <Text className="text-[10px] text-cyan-700 uppercase">
+          <Text className="text-[10px] text-cyan-700 uppercase block">
             Mã phòng
           </Text>
-          <Text className="text-xl font-bold tracking-[0.25em]">
+          <Text className="text-xl font-bold tracking-[0.25em] block leading-tight">
             {game?.room_code || game?.id?.slice(0, 6).toUpperCase() || "------"}
           </Text>
         </Box>

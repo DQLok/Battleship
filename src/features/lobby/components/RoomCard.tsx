@@ -1,7 +1,8 @@
-import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
 import React from "react";
-import { Box, Text, Button, Avatar, Icon, useNavigate } from "zmp-ui";
+import { Box, Text, Button, Avatar, Icon } from "zmp-ui";
+import { useGameLifecycle } from "@/context/GameLifecycleContext";
+import { GAME_LIFECYCLE_DEFAULTS } from "@/constants/game-lifecycle";
 
 interface RoomCardProps {
   room: any;
@@ -11,10 +12,17 @@ interface RoomCardProps {
 }
 
 const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
+  const { settings: lifecycle } = useGameLifecycle();
   const memberCount = room.members?.length || 0;
-  const isFull = memberCount >= 8;
+  const gameMode = room.game_mode ?? "1vs1";
+  const maxMembers =
+    gameMode === "1vs1"
+      ? lifecycle.max_members_1vs1 ?? GAME_LIFECYCLE_DEFAULTS.max_members_1vs1
+      : 8; // team mode reserved (4vs4 -> up to 8)
+  const isFull = memberCount >= maxMembers;
   const isMine = room.host_id === myId;
   const isPlaying = room.status === "playing";
+  const isSetup = room.status === "setup";
   const host = room.host;
   const isOnline = room.id !== "###";
 
@@ -32,6 +40,8 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
           ? "4px solid #facc15"
           : isPlaying
           ? "4px solid #ef4444"
+          : isSetup
+          ? "4px solid #a78bfa"
           : "4px solid #00e5ff",
         boxShadow: isMine
           ? "0 0 20px rgba(250, 204, 21, 0.15)"
@@ -63,17 +73,23 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
               size="small"
               bold
               className={`${
-                isPlaying ? "text-red-500 animate-pulse" : "text-green-400"
+                isPlaying
+                  ? "text-red-500 animate-pulse"
+                  : isSetup
+                  ? "text-violet-400"
+                  : "text-green-400"
               } uppercase tracking-widest`}
             >
-              {isPlaying ? "• In Battle" : "• Waiting"}
+              {isPlaying ? "• In Battle" : isSetup ? "• Setup" : "• Waiting"}
             </Text>
           </Box>
 
           <Box
             flex
             alignItems="center"
-            className={isPlaying ? "text-red-400" : "text-cyan-400"}
+            className={
+              isPlaying ? "text-red-400" : isSetup ? "text-violet-400" : "text-cyan-400"
+            }
           >
             <Icon icon="zi-group" size={14} style={{ marginRight: 4 }} />
             {memberCount}
@@ -133,7 +149,11 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
 
         <Button
           fullWidth
-          disabled={isFull && !isMine && !room.members?.includes(myId)}
+          disabled={
+            !isMine &&
+            !room.members?.includes(myId) &&
+            (isFull || isSetup || isPlaying)
+          }
           onClick={(e) =>
             handleAction(e, () => {
               // if (isMine || room.members?.includes(myId)) {
@@ -149,6 +169,8 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
               ? "bg-yellow-500 text-black"
               : isPlaying || !isOnline
               ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              : isSetup
+              ? "bg-violet-500 text-white"
               : isFull
               ? "bg-gray-800 text-gray-500"
               : "bg-cyan-400 text-black"
@@ -158,6 +180,8 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
           {isMine || room.members?.includes(myId)
             ? isPlaying || !isOnline
               ? "VÀO CHIẾN TRƯỜNG"
+              : isSetup
+              ? "VÀO DÀN TRẬN"
               : "VÀO PHÒNG CHỜ"
             : isFull
             ? "FULL UNIT"
