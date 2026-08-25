@@ -49,14 +49,21 @@ Khi vào trận, UI chia làm 2 phần:
   - Không cho bắn lại ô đã có kết quả (`enemyGrid[y][x] !== "empty"`)
 - **Lưới nhà**: `GameGrid type="home"` (hiển thị tàu + trạng thái bị bắn)
 
-### 3) Kết thúc / thoát trận
+### 3) Kết thúc trận (win) — đóng trận rồi về phòng chờ
 
-- Khi có `winner` (`"player"` hoặc `"enemy"`):
-  - Hiện `Modal` kết quả và gọi `handleEndSession()` để dọn state local.
-  - Với online: `finishGame(gameId, winnerId)` được gọi trong effect cleanup.
-- Khi người chơi **Back** lúc đang chiến đấu:
-  - Sheet **rời trận** (`requestLeaveWithReconnect`, grace 30s). Không phải rút quân.
-  - Chi tiết: [lobby.md](./lobby.md) § “Rời phòng giữa trận”.
+Khi một bên thắng (bắn hết tàu / auto-win mất tín hiệu):
+
+1. Store set `winner` → Modal VICTORY / DEFEAT.
+2. Client gọi `finish_game` **một lần** (`finishOnceRef`); RPC chỉ chạy khi `status = playing` (idempotent).
+3. Server: cộng stats (`profiles` nếu có), **insert `match_results`**, xóa `moves` + `game_boards`, rồi **`status = waiting`** (cùng `room_code` / `members` / `host_id`). Giữ `winner_id` tạm để đối thủ hiện Modal.
+4. Nút **VỀ PHÒNG CHỜ** / đóng Modal → clear `winner_id` + `resetShips` + **navigate `/waiting`** (phòng cũ). Có thể Ready / host BẮT ĐẦU lại, hoặc Back về Lobby (`leave_game_room`).
+5. Mỗi trận thắng = một hàng `match_results` (cùng `game_id` được phép nhiều lần). Xóa phòng → cascade xóa `match_results`. TTL phòng theo `game_lifecycle` (xem [game-lifecycle.md](./game-lifecycle.md)).
+6. Nếu realtime thấy `waiting` + `winner_id` trước khi có winner local → set winner từ `winner_id`, giữ Modal.
+
+Khác **Rời trận** (Back): grace reconnect, không cộng win.
+
+- Khi người chơi **Back** lúc đang chiến đấu (chưa có winner):
+  - Sheet **rời trận** (`requestLeaveWithReconnect`). Chi tiết [lobby.md](./lobby.md).
 
 ### 4) Rút quân (Surrender) — thua và dàn trận lại
 

@@ -9,7 +9,9 @@ import { useUser } from "@/context/UserContext";
 import { Profile } from "@/types/supabase/Profile";
 import { JoinRoomCode } from "@/features/lobby/components/JoinRoomCode";
 import { ReconnectBanner } from "@/features/lobby/components/ReconnectBanner";
+import { CreateRoomSheet } from "@/features/lobby/components/CreateRoomSheet";
 import { useSupabase } from "@/hooks/useSupabase";
+import "@/css/features/lobby.scss";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ const HomePage: React.FC = () => {
   const { user, isGuest } = useUser();
   const { createRoom } = useSupabase();
   const [creatingRoom, setCreatingRoom] = useState(false);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
 
   const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
@@ -166,22 +169,7 @@ const HomePage: React.FC = () => {
             whileTap={{ scale: 0.98 }}
             className="btn-primary-combat group relative w-full py-4 rounded-sm overflow-hidden transition-all"
             disabled={creatingRoom}
-            onClick={async () => {
-              if (!user?.id) {
-                openSnackbar({ text: "Chưa có phiên chơi." });
-                return;
-              }
-              setCreatingRoom(true);
-              const { data, error } = await createRoom(user.id);
-              setCreatingRoom(false);
-              if (error || !data) {
-                openSnackbar({
-                  text: error?.message || "Không tạo được phòng.",
-                });
-                return;
-              }
-              navigate("/waiting", { state: { gameId: data.id } });
-            }}
+            onClick={() => setShowCreateSheet(true)}
           >
             <Box className="relative flex items-center justify-center gap-3">
               <Plus className="w-6 h-6" />
@@ -330,6 +318,46 @@ const HomePage: React.FC = () => {
           </Box>
         </Box>
       </Sheet>
+
+      <CreateRoomSheet
+        visible={showCreateSheet}
+        busy={creatingRoom}
+        onClose={() => setShowCreateSheet(false)}
+        onQuickCreate={async () => {
+          if (!user?.id) {
+            openSnackbar({ text: "Chưa có phiên chơi." });
+            return;
+          }
+          setCreatingRoom(true);
+          const { data, error } = await createRoom(user.id);
+          setCreatingRoom(false);
+          if (error || !data) {
+            openSnackbar({
+              text: error?.message || "Không tạo được phòng.",
+            });
+            return;
+          }
+          setShowCreateSheet(false);
+          navigate("/waiting", { state: { gameId: data.id } });
+        }}
+        onCreateWithPassword={async (password) => {
+          if (!user?.id) {
+            openSnackbar({ text: "Chưa có phiên chơi." });
+            return;
+          }
+          setCreatingRoom(true);
+          const { data, error } = await createRoom(user.id, { password });
+          setCreatingRoom(false);
+          if (error || !data) {
+            openSnackbar({
+              text: error?.message || "Không tạo được phòng.",
+            });
+            return;
+          }
+          setShowCreateSheet(false);
+          navigate("/waiting", { state: { gameId: data.id } });
+        }}
+      />
     </Page>
   );
 };

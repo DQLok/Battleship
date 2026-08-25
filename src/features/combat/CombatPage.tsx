@@ -89,6 +89,7 @@ const CombatPage: React.FC = () => {
   const lastGameSnapshotRef = useRef<Game | null>(null);
   const rematchResetRef = useRef(false);
   const finalizeReconnectRef = useRef(false);
+  const finishOnceRef = useRef(false);
 
   const gameId = state?.gameId || game?.id || "ROOM_TEST_01";
   const botMode = isBotMode || gameId === "###";
@@ -166,6 +167,25 @@ const CombatPage: React.FC = () => {
               });
               rematchResetRef.current = false;
               return;
+            }
+
+            // Win: playing → waiting (+ winner_id). Giữ Modal; không nhảy WaitingRoom ngay.
+            if (
+              stillInRoom &&
+              updated?.status === "waiting" &&
+              (updated.winner_id || useCombatStore.getState().winner)
+            ) {
+              const localWinner = useCombatStore.getState().winner;
+              if (!localWinner && updated.winner_id) {
+                useCombatStore.setState({
+                  winner:
+                    updated.winner_id === user.id ? "player" : "enemy",
+                });
+                finishOnceRef.current = true;
+              }
+              if (useCombatStore.getState().winner) {
+                return;
+              }
             }
 
             if (updated?.status === "waiting") {
@@ -353,33 +373,39 @@ const CombatPage: React.FC = () => {
     }
   }, [isReadySent, enemyShips, inBattle, botMode, gameId, serverGame?.host_id, user?.id]);
 
-  // --- 2. LOGIC KẾT THÚC & DỌN DẸP DỮ LIỆU ---
-  //Thêm useEffect này bên dưới cái Realtime của bạn
+  // Kết thúc trận: finish_game → match_results + waiting; Modal → WaitingRoom.
   useEffect(() => {
     const handleCleanUp = async () => {
-      if (winner && gameId && !isFinishing) {
-        if (botMode) {
-          openSnackbar({
-            text: `Chiến dịch ${
-              winner === "player" ? "Thất bại" : "Thành công"
-            }`,
-          });
-        } else {
-          const myId = user?.id;
-          const opponentId = (serverGame?.members || []).find(
-            (id: string) => id && id !== myId
-          );
-          const winnerId = winner === "player" ? myId : opponentId;
+      if (!winner || !gameId || botMode) return;
+      if (finishOnceRef.current || isFinishing) return;
+      finishOnceRef.current = true;
 
-          if (winnerId) {
-            await finishGame(gameId, winnerId);
-          }
-        }
+      const myId = user?.id;
+      const opponentId = (serverGame?.members || []).find(
+        (id: string) => id && id !== myId
+      );
+      const winnerId = winner === "player" ? myId : opponentId;
+
+      if (winnerId) {
+        await finishGame(gameId, winnerId);
+      } else {
+        console.warn("finish_game skipped: missing winnerId");
+        finishOnceRef.current = false;
       }
     };
 
-    handleCleanUp();
-  }, [winner, gameId, botMode, serverGame, user?.id]);
+    void handleCleanUp();
+  }, [winner, gameId, botMode, serverGame, user?.id, isFinishing]);
+
+  // Đối thủ đã finish trước: waiting + winner_id → hiện Modal nếu chưa có winner local.
+  useEffect(() => {
+    if (botMode || !user?.id || winner) return;
+    if (serverGame?.status !== "waiting" || !serverGame.winner_id) return;
+    useCombatStore.setState({
+      winner: serverGame.winner_id === user.id ? "player" : "enemy",
+    });
+    finishOnceRef.current = true;
+  }, [botMode, user?.id, winner, serverGame?.status, serverGame?.winner_id]);
 
   useEffect(() => {
     // Hàm này sẽ chạy khi user nhấn nút Back của Zalo hoặc nút Back vật lý
@@ -404,19 +430,31 @@ const CombatPage: React.FC = () => {
 
   // Hàm xử lý thắng do đối thủ mất kết nối
   const handleAutoWin = async () => {
-    if (!gameId || !user || isFinishing) return;
-
-    // 1. Thông báo nhanh qua Snackbar
+    if (!gameId || !user || isFinishing || winner) return;
     openSnackbar({ text: "ĐỐI THỦ MẤT KẾT NỐI. BẠN GIÀNH CHIẾN THẮNG!" });
+    // Chỉ set winner local — effect sẽ gọi finish_game(winner = mình).
+    useCombatStore.setState({ winner: "player" });
+  };
 
-    try {
-      // Set winner ngay lập tức để hiện Modal
-      useCombatStore.setState({ winner: "player" });
-      // Sau đó mới gọi API lưu kết quả ngầm
-      await finishGame(gameId, null);
-    } catch (err) {
-      console.error("Lỗi xử lý thắng tự động:", err);
+  const handleEndSession = async () => {
+    resetShips();
+    setEnemyShips([]);
+    setTurn(true);
+    setIsReadySent(false);
+    setInBattle(false);
+    finishOnceRef.current = false;
+    useCombatStore.setState({ winner: null });
+
+    if (!botMode && gameId && gameId !== "###") {
+      // Xóa winner_id để WaitingRoom sẵn sàng ready / start lại.
+      await supabase
+        .from("games")
+        .update({ winner_id: null })
+        .eq("id", gameId);
+      navigate("/waiting", { state: { gameId }, replace: true });
+      return;
     }
+    navigate("/lobby", { replace: true });
   };
 
   const handleLeaveBattle = async () => {
@@ -593,15 +631,6 @@ const CombatPage: React.FC = () => {
     }
   };
 
-  const handleEndSession = () => {
-    resetShips(); // Cực kỳ quan trọng: reset sạch store trước khi reload
-    // Chờ một chút để store kịp clear rồi mới reload/navigate
-    // setTimeout(() => {
-    // window.location.reload();
-    // }, 100);
-    setInBattle(false);
-  };
-
   return (
     <Page
       className={`combat-page ${draggingShip ? "dragging-active" : ""}`}
@@ -775,18 +804,20 @@ const CombatPage: React.FC = () => {
           {
             close: true,
             highLight: true,
-            text: "QUAY LẠI CĂN CỨ",
+            text: "VỀ PHÒNG CHỜ",
           },
         ]}
         description={
           winner === "player"
-            ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH!"
-            : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI."
+            ? "HẠM ĐỘI ĐỊCH ĐÃ BỊ QUÉT SẠCH! Sẵn sàng chơi lại hoặc về Lobby."
+            : "CHÚNG TA ĐÃ MẤT LIÊN LẠC VỚI HẠM ĐỘI. Sẵn sàng chơi lại hoặc về Lobby."
         }
         title={winner === "player" ? "VICTORY" : "DEFEAT"}
         visible={!!winner}
         zIndex={1200}
-        onClose={handleEndSession}
+        onClose={() => {
+          void handleEndSession();
+        }}
       />
 
       <Sheet

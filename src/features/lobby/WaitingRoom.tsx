@@ -123,6 +123,7 @@ export const WaitingRoom = () => {
           status: "setup",
           current_turn: null,
           ready_members: [],
+          winner_id: null,
         })
         .eq("id", gameId);
 

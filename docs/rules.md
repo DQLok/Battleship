@@ -41,15 +41,16 @@ Ghi cùng id vào: `games.host_id`, `members[]`, `current_turn`, `winner_id`, `g
 
 ## 2. Phòng, lịch sử, dọn dữ liệu
 
-- Telegram **và** Guest đều **tạo phòng** (`createRoom(user.id)`) và **join bằng `room_code`**.
+- Telegram **và** Guest đều **tạo phòng** (`createRoom` nhanh hoặc có mật khẩu) và **join bằng `room_code`** (+ mật khẩu nếu `has_password`).
 - Rời phòng waiting: `leave_game_room`. Không còn member → xóa phòng (giải unique `unique_waiting_room_per_user`).
 - **Status phòng:** `waiting` → `setup` (dàn tàu) → `playing` (bắn) → `finished`. Người mới chỉ join lúc `waiting`; `setup`/`playing` chỉ member vào lại.
 - Trong trận: giữ `games` + `game_boards` + `moves` (realtime / lượt).
-- `finish_game`: `games.status = finished`; xóa `moves` + `game_boards` (như RPC hiện tại).
+- `finish_game`: khi `playing` → insert `match_results`, xóa board/moves, **`status = waiting`** (cùng phòng/code). Client Modal → WaitingRoom.
 - Guest **không** lưu lịch sử kiểu tài khoản (không profile, không `wins`).
-- Schedule **`game_lifecycle`** (`public.game_lifecycle`): TTL / reconnect / cap 1vs1. Cột `unit` = `seconds` | `count`. Client đồng bộ qua `GameLifecycleProvider`; fallback `src/constants/game-lifecycle.ts`. Chi tiết [game-lifecycle.md](./game-lifecycle.md).
-- **Dọn định kỳ**: RPC `cleanup_stale_games()` đọc TTL từ schedule (chưa bắt buộc đã gắn cron).
-  - Xóa `waiting` / `setup` / `finished` có guest theo TTL.
+- Schedule **`game_lifecycle`**: TTL theo status (`waiting`/`setup`/`playing` = 2 ngày, `finished` = 7 ngày, catch-all `games_ttl` ≈ 1 tháng). Chi tiết [game-lifecycle.md](./game-lifecycle.md).
+- **`match_results`**: snapshot khi `finish_game`; **xóa cùng phòng** (FK cascade). Không TTL riêng.
+- **Dọn định kỳ**: RPC `cleanup_stale_games()` — xóa `games` quá hạn `updated_at` (+ cascade `match_results`).
+  - Từng status một key TTL; thêm `games_ttl` cho mọi status.
 
 Chi tiết phòng: [lobby.md](./lobby.md). Combat: [combat.md](./combat.md).
 
@@ -121,8 +122,9 @@ Cursor: `typescript-standards.mdc`, `react-component-patterns.mdc`.
 - Dàn trận: kéo từ dock hoặc chọn rồi chạm ô; cyan hợp lệ / đỏ invalid.
 - Đủ 4 tàu mới xác nhận triển khai.
 - Online: bắn theo `current_turn` + insert `moves`; bot mode offline cùng store/UI.
-- Rời giữa trận (out/back): grace **30s** reconnect; hết hạn → forfeit (+`total_games`, không win).
-- **Rút quân** (nút + confirm): người bấm thua, đối thủ +win (nếu có `profiles`); cả hai ở Combat, về dàn trận.
-- `winner_id` online: id mình nếu thắng, **id đối thủ** nếu thua — không để chuỗi rỗng.
+- **Win:** `finish_game` → `match_results` + `waiting` (cùng phòng) → Modal → WaitingRoom (chơi tiếp hoặc về Lobby). RPC chỉ khi đang `playing`.
+- Rời giữa trận (out/back): grace reconnect; hết hạn → forfeit (+`total_games`, không win).
+- **Rút quân** (nút + confirm): người bấm thua, đối thủ +win (nếu có `profiles`); cả hai ở Combat, về dàn trận (`setup`).
+- `winner_id` online: id mình nếu thắng, **id đối thủ** nếu thua — không để chuỗi rỗng. Clear khi về WaitingRoom / host start.
 
 Chi tiết: [combat.md](./combat.md).

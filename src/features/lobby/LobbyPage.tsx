@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Page,
   Tabs,
@@ -15,6 +15,8 @@ import { useSupabase } from "@/hooks/useSupabase";
 import RoomCard from "./components/RoomCard";
 import { JoinRoomCode } from "./components/JoinRoomCode";
 import { ReconnectBanner } from "./components/ReconnectBanner";
+import { CreateRoomSheet } from "./components/CreateRoomSheet";
+import { JoinPasswordSheet } from "./components/JoinPasswordSheet";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
@@ -27,6 +29,11 @@ export const LobbyPage = () => {
   const { user, isGuest, loading: userLoading } = useUser();
   const myId = user?.id || "";
 
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [joinTarget, setJoinTarget] = useState<Game | null>(null);
+  const [joining, setJoining] = useState(false);
+
   useEffect(() => {
     if (userLoading) return;
     if (!user?.id) {
@@ -36,20 +43,25 @@ export const LobbyPage = () => {
     fetchRooms();
   }, [userLoading, user?.id]);
 
-  const handleCreate = async () => {
+  const runCreate = async (password?: string) => {
     if (!user?.id) {
       openSnackbar({ text: "Chưa có phiên chơi." });
       return;
     }
-    const { data, error } = await createRoom(user.id);
+    setCreating(true);
+    const { data, error } = await createRoom(
+      user.id,
+      password ? { password } : undefined
+    );
+    setCreating(false);
     if (error || !data) {
-      console.error(error);
       openSnackbar({
         text: error?.message || "Không tạo được phòng.",
         type: "error",
       });
       return;
     }
+    setShowCreateSheet(false);
     navigate(`/waiting`, { state: { gameId: data.id } });
   };
 
@@ -65,7 +77,16 @@ export const LobbyPage = () => {
         text: "Đã giải tán phòng thành công!",
         type: "success",
       });
-      fetchRooms(); // Tải lại danh sách
+      fetchRooms();
+    }
+  };
+
+  const enterRoom = (targetRoom: Game) => {
+    initGame(targetRoom, user, false);
+    if (targetRoom.status === "playing" || targetRoom.status === "setup") {
+      navigate("/combat", { state: { gameId: targetRoom.id } });
+    } else {
+      navigate("/waiting", { state: { gameId: targetRoom.id } });
     }
   };
 
@@ -78,11 +99,10 @@ export const LobbyPage = () => {
       navigate("/combat", { state: { gameId } });
       return;
     }
-    // 1. Tìm thông tin phòng hiện tại trong danh sách rooms đã fetch
-    const targetRoom = rooms.find((r) => r.id === gameId);
+
+    const targetRoom = rooms.find((r) => r.id === gameId) || game;
     if (!targetRoom) return;
 
-    // 2. Nếu người chơi chưa có trong phòng, hãy gọi RPC để gia nhập
     const isMember = targetRoom.members?.includes(myId);
     const isHost = targetRoom.host_id === myId;
 
@@ -97,34 +117,59 @@ export const LobbyPage = () => {
         });
         return;
       }
+      if (targetRoom.status === "finished") {
+        openSnackbar({ text: "Phòng đã kết thúc.", type: "error" });
+        return;
+      }
+      if (targetRoom.has_password) {
+        setJoinTarget(targetRoom);
+        return;
+      }
+      setJoining(true);
       const { error } = await joinRoom(gameId, myId);
+      setJoining(false);
       if (error) {
         openSnackbar({
-          message: "Không thể vào phòng: " + error.message,
+          text: "Không thể vào phòng: " + error.message,
           type: "error",
         });
         return;
       }
     }
 
-    // 3. Điều hướng dựa trên trạng thái (Status) của phòng
-    if (targetRoom.status === "playing" || targetRoom.status === "setup") {
-      navigate("/combat", { state: { gameId } });
-    } else {
-      navigate("/waiting", { state: { gameId } });
-    }
+    enterRoom(targetRoom);
   };
 
-  // Logic phân loại phòng cho 2 Tab
-  const waitingRooms = rooms; //.filter((r) => r.status === "waiting");
+  const handlePasswordJoin = async (password: string) => {
+    if (!joinTarget || !myId) return;
+    setJoining(true);
+    const { error } = await joinRoom(joinTarget.id, myId, password);
+    setJoining(false);
+    if (error) {
+      openSnackbar({
+        text: error.message?.includes("Sai mật khẩu")
+          ? "Sai mật khẩu phòng."
+          : "Không thể vào phòng: " + error.message,
+        type: "error",
+      });
+      return;
+    }
+    const room = joinTarget;
+    setJoinTarget(null);
+    enterRoom(room);
+  };
+
+  const waitingRooms = rooms;
   const friendRooms = rooms.filter(
     (r) => (r.members || []).includes(myId) && r.host_id !== myId
   );
   const botRooms = [
     {
       id: "###",
-      rooms_name: "Bot Mode",
+      room_name: "Bot Mode",
       host_id: myId,
+      members: [myId],
+      status: "waiting",
     },
   ];
 
@@ -136,65 +181,79 @@ export const LobbyPage = () => {
         backgroundColor="#061421"
         showBackIcon={false}
       />
-      <Box p={4} className="pb-0">
+      <Box className="lobby-page__top">
         {isGuest && (
           <Text size="xSmall" className="text-cyan-600 mb-3 uppercase tracking-wider">
-            Guest — tạo phòng (nút +) hoặc nhập mã để tham gia. Lượt đi / thắng
+            Guest — nhập mã rồi Vào, hoặc bấm + để tạo phòng. Lượt đi / thắng
             dùng ID phiên web, không ghi profiles.
           </Text>
         )}
         <ReconnectBanner />
-        <JoinRoomCode />
-        <Button className="lobby-create" fullWidth onClick={handleCreate}>
-          Tạo phòng
-        </Button>
+        <JoinRoomCode enterFullWidth />
       </Box>
-      <Tabs id="lobby-tabs">
-        <Tabs.Tab key="all" label="TẤT CẢ PHÒNG" className="lobby-tabs">
-          <Box p={4}>
-            {waitingRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                onJoin={handleJoin}
-                onDelete={handleDelete}
-                myId={myId}
-              />
-            ))}
-          </Box>
-        </Tabs.Tab>
-        <Tabs.Tab key="friends" label="PHÒNG BẠN BÈ" className="lobby-tabs">
-          <Box p={4}>
-            {friendRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                onJoin={handleJoin}
-                onDelete={handleDelete}
-                myId={myId}
-              />
-            ))}
-          </Box>
-        </Tabs.Tab>
-        <Tabs.Tab key="bot" label="PHÒNG BOT" className="lobby-tabs">
-          <Box p={4}>
-            {botRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                onJoin={handleJoin}
-                onDelete={handleDelete}
-                myId={myId}
-              />
-            ))}
-          </Box>
-        </Tabs.Tab>
-      </Tabs>
+      <Box className="lobby-page__tabs">
+        <Tabs id="lobby-tabs">
+          <Tabs.Tab key="all" label="TẤT CẢ PHÒNG" className="lobby-tabs">
+            <Box className="lobby-tab-panel">
+              {waitingRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  onJoin={handleJoin}
+                  onDelete={handleDelete}
+                  myId={myId}
+                />
+              ))}
+            </Box>
+          </Tabs.Tab>
+          <Tabs.Tab key="friends" label="PHÒNG BẠN BÈ" className="lobby-tabs">
+            <Box className="lobby-tab-panel">
+              {friendRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  onJoin={handleJoin}
+                  onDelete={handleDelete}
+                  myId={myId}
+                />
+              ))}
+            </Box>
+          </Tabs.Tab>
+          <Tabs.Tab key="bot" label="PHÒNG BOT" className="lobby-tabs">
+            <Box className="lobby-tab-panel">
+              {botRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  onJoin={handleJoin}
+                  myId={myId}
+                />
+              ))}
+            </Box>
+          </Tabs.Tab>
+        </Tabs>
+      </Box>
 
       <Button
         className="fab-button"
         icon={<Icon icon="zi-plus" />}
-        onClick={handleCreate}
+        onClick={() => setShowCreateSheet(true)}
+      />
+
+      <CreateRoomSheet
+        visible={showCreateSheet}
+        busy={creating}
+        onClose={() => setShowCreateSheet(false)}
+        onQuickCreate={() => void runCreate()}
+        onCreateWithPassword={(pw) => void runCreate(pw)}
+      />
+
+      <JoinPasswordSheet
+        visible={!!joinTarget}
+        roomCode={joinTarget?.room_code}
+        busy={joining}
+        onClose={() => setJoinTarget(null)}
+        onSubmit={(pw) => void handlePasswordJoin(pw)}
       />
     </Page>
   );

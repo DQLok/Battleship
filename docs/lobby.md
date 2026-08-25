@@ -2,15 +2,21 @@
 
 ## Tạo phòng
 
-- Telegram **và** Guest web đều tạo được (`createRoom(user.id)`). Home có nút **Tạo phòng**; Lobby có nút **Tạo phòng** + FAB `+`. Dùng `user.id` sau khi session load xong (không insert `host_id` rỗng).
-- `host_id` = player id (telegram hoặc `guest_*`), `members = [user.id]`, `room_code` 6 ký tự.
-- Guest không có hàng `profiles`; phòng vẫn hợp lệ vì không FK `host_id` → profiles.
+- Home + Lobby: **popup** tạo phòng — **Tạo nhanh** hoặc **Có mật khẩu**.
+- `createRoom(user.id, { password? })` → `host_id`, `members = [user.id]`, `room_code` 6 ký tự, optional `room_password`.
+- `has_password` (generated): true khi có mật khẩu. List **không** select `room_password`.
+
+## Danh sách Lobby
+
+- `fetchRooms`: cột công khai + `has_password` (không plaintext mật khẩu). Status `waiting` | `setup` | `playing` | `finished`.
+- RoomCard: **code**, **tên host**, **trạng thái**, **tổng members**. Status `waiting` → nút **Tham gia** (host/member: Vào phòng).
+- Phòng có MK: icon khóa; join mở sheet nhập mật khẩu.
 
 ## Tham gia
 
-- Từ danh sách: `join_game_room(room_id, new_user_id)` (idempotent). Chỉ nhận **member mới** khi `status = waiting`.
-- Từ **mã phòng**: `joinRoomByCode` — tìm `waiting` | `setup` | `playing`. Người mới chỉ join được lúc `waiting`. `setup`/`playing`: chỉ member hiện có vào lại → Combat.
-- UI nhập mã: `src/features/lobby/components/JoinRoomCode.tsx` (Home + Lobby).
+- `join_game_room(room_id, new_user_id, p_password?)` — chỉ `waiting`; sai MK → exception. Member/host sẵn có: bỏ qua MK.
+- Từ danh sách / mã phòng: nếu `has_password` và chưa là member → nhập đúng mật khẩu.
+- `setup`/`playing`: chỉ member vào lại → Combat.
 
 ## Status `games`
 
@@ -21,7 +27,7 @@
 | `playing` | Đang bắn |
 | `finished` | Trận xong |
 
-Host BẮT ĐẦU → `setup`. Cả hai xác nhận triển khai → `playing`. Rút quân rematch → lại `setup`.
+Host BẮT ĐẦU → `setup`. Cả hai xác nhận triển khai → `playing`. Win → `match_results` rồi về `waiting` (cùng phòng). Rút quân rematch → `setup`.
 
 ## `room_code`
 
@@ -63,11 +69,7 @@ Người rời **luôn** về Lobby ngay. Người còn ở Combat đến hết 
 
 ## File
 
-- `src/features/lobby/LobbyPage.tsx`, `WaitingRoom.tsx`, `components/RoomCard.tsx`, `JoinRoomCode.tsx`
+- `src/features/lobby/LobbyPage.tsx`, `WaitingRoom.tsx`, `components/RoomCard.tsx`, `JoinRoomCode.tsx`, `CreateRoomSheet.tsx`, `JoinPasswordSheet.tsx`
 - `src/hooks/useSupabase.ts` — `createRoom`, `joinRoom`, `joinRoomByCode`, `leaveRoom`, `leaveBattle`
 - `src/types/supabase/Game.ts`
-- Local: `supabase migration up` nếu REST báo thiếu cột (`PGRST204` `room_code`).
-- Migration rời phòng: `20260819000003_leave_game_room.sql`
-- Migration forfeit out: `20260820000004_forfeit_on_leave.sql`
-- Migration reconnect grace: `20260820000005_reconnect_grace.sql`
-- Migration setup status: `20260821000007_games_status_setup.sql`
+- Migration mật khẩu: `20260821000014_room_password.sql`

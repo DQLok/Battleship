@@ -29,7 +29,7 @@ Chi tiết: [docs/README.md](docs/README.md). Ràng buộc: [docs/rules.md](docs
    - Insert `public.moves`; trigger `check_move_logic()` tính hit/sunk trên DB.
 
 5. **Kết thúc trận**
-   - RPC `finish_game`: cộng `wins`/`total_games` **nếu** id có trong `profiles`; set `games.status = finished`; xóa `moves` + `game_boards`.
+   - RPC `finish_game`: cộng stats; insert `match_results`; xóa board/moves; **`status = waiting`** (cùng phòng/code).
 
 6. **Realtime**
    - Subscribe `games`, `game_boards`, `moves`.
@@ -50,6 +50,11 @@ Không còn gói hết schema trong 1 file. Áp dụng theo thứ tự thời gi
 | `20260821000007_games_status_setup.sql` | Thêm `status = setup` (dàn tàu); join mới chỉ lúc `waiting` |
 | `20260821000008_game_lifecycle.sql` | Schedule `game_lifecycle` + `cleanup_stale_games` |
 | `20260821000009_game_lifecycle_unit.sql` | Cột `unit` (`seconds` / `count`) trên `game_lifecycle` |
+| `20260821000010_finish_game_idempotent.sql` | `finish_game` idempotent khi đã `finished` |
+| `20260821000011_match_results.sql` | Bảng `match_results` + seed TTL (superseded by …13) |
+| `20260821000012_finish_return_waiting.sql` | Win → `match_results` rồi `games` về `waiting` (cùng phòng) |
+| `20260821000013_games_ttl_cascade_results.sql` | TTL theo status + `games_ttl`; cascade xóa `match_results` |
+| `20260821000014_room_password.sql` | `room_password` / `has_password`; join RPC kiểm tra MK |
 
 ## Test local (web + DB local)
 - Dev: `npm run dev` → http://localhost:5173/ (mở web = **Guest**)

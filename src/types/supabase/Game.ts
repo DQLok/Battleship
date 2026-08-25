@@ -17,4 +17,7 @@ export interface Game {
   created_at: string; // ISO Timestamp (Asia/Ho_Chi_Minh)
   game_mode: "1vs1" | "team";
   ready_members: string[];
-}
+  /** Có mật khẩu (không trả plaintext trong list) */
+  has_password?: boolean;
+  room_password?: string | null;
+};

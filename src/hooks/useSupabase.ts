@@ -66,30 +66,87 @@ export const useSupabase = () => {
     return { error: writeErr ?? null };
   };
 
-  // 1. Fetch danh sách phòng
+  // 1. Fetch danh sách phòng (không trả room_password)
   const fetchRooms = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("games")
       .select(
         `
-        *,
-        host:profiles!games_player_1_fkey ( username, avatar_url )
+        id,
+        room_name,
+        room_code,
+        host_id,
+        members,
+        status,
+        current_turn,
+        winner_id,
+        game_mode,
+        ready_members,
+        created_at,
+        updated_at,
+        disconnected_user_id,
+        reconnect_until,
+        has_password
       `
       )
-      .order("created_at", { ascending: false });
+      .in("status", ["waiting", "setup", "playing", "finished"])
+      .order("updated_at", { ascending: false });
 
-    if (!error && data) {
-      setRooms(data);
+    if (error) {
+      console.error("fetchRooms:", error.message);
+      setRooms([]);
+      setLoading(false);
+      return;
     }
+
+    const rows = data || [];
+    const hostIds = [
+      ...new Set(
+        rows
+          .map((r) => r.host_id as string | null)
+          .filter((id): id is string => !!id && !id.startsWith("guest_"))
+      ),
+    ];
+
+    let hostById: Record<string, { username?: string; avatar_url?: string }> =
+      {};
+    if (hostIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", hostIds);
+      for (const p of profiles || []) {
+        hostById[p.id] = {
+          username: p.username,
+          avatar_url: p.avatar_url,
+        };
+      }
+    }
+
+    setRooms(
+      rows.map((r) => ({
+        ...r,
+        host: r.host_id
+          ? hostById[r.host_id] ||
+            (String(r.host_id).startsWith("guest_")
+              ? { username: "Guest", avatar_url: undefined }
+              : undefined)
+          : undefined,
+      }))
+    );
     setLoading(false);
   };
 
-  // 2. Tạo phòng mới
-  const createRoom = async (userId: string) => {
+  // 2. Tạo phòng mới (quick hoặc có mật khẩu)
+  const createRoom = async (
+    userId: string,
+    options?: { password?: string | null }
+  ) => {
     if (!userId) {
       return { data: null, error: { message: "Thiếu player id." } };
     }
+    const password = options?.password?.trim() || null;
     let lastError: { message?: string } | null = null;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const { data, error } = await supabase
@@ -101,9 +158,24 @@ export const useSupabase = () => {
             host_id: userId,
             members: [userId],
             status: "waiting",
+            room_password: password,
           },
         ])
-        .select()
+        .select(
+          `
+          id,
+          room_name,
+          room_code,
+          host_id,
+          members,
+          status,
+          game_mode,
+          ready_members,
+          created_at,
+          updated_at,
+          has_password
+        `
+        )
         .single();
 
       if (!error && data) return { data, error: null };
@@ -113,7 +185,21 @@ export const useSupabase = () => {
       if (code === "23505" && msg.includes("unique_waiting_room_per_user")) {
         const { data: existing } = await supabase
           .from("games")
-          .select("*")
+          .select(
+            `
+            id,
+            room_name,
+            room_code,
+            host_id,
+            members,
+            status,
+            game_mode,
+            ready_members,
+            created_at,
+            updated_at,
+            has_password
+          `
+          )
           .eq("host_id", userId)
           .eq("status", "waiting")
           .maybeSingle();
@@ -160,16 +246,25 @@ export const useSupabase = () => {
     return { error };
   };
 
-  // 3. Tham gia phòng
-  const joinRoom = async (gameId: string, userId: string) => {
+  // 3. Tham gia phòng (mật khẩu nếu phòng có password)
+  const joinRoom = async (
+    gameId: string,
+    userId: string,
+    password?: string | null
+  ) => {
     const { error } = await supabase.rpc("join_game_room", {
       room_id: gameId,
       new_user_id: userId,
+      p_password: password?.trim() || null,
     });
     return { error };
   };
 
-  const joinRoomByCode = async (rawCode: string, userId: string) => {
+  const joinRoomByCode = async (
+    rawCode: string,
+    userId: string,
+    password?: string | null
+  ) => {
     const roomCode = rawCode.trim().toUpperCase();
     if (!roomCode) {
       return { data: null, error: { message: "Nhập mã phòng." } };
@@ -177,7 +272,25 @@ export const useSupabase = () => {
 
     const { data, error } = await supabase
       .from("games")
-      .select("*")
+      .select(
+        `
+        id,
+        room_name,
+        room_code,
+        host_id,
+        members,
+        status,
+        current_turn,
+        winner_id,
+        game_mode,
+        ready_members,
+        created_at,
+        updated_at,
+        disconnected_user_id,
+        reconnect_until,
+        has_password
+      `
+      )
       .eq("room_code", roomCode)
       .in("status", ["waiting", "setup", "playing"])
       .maybeSingle();
@@ -211,7 +324,25 @@ export const useSupabase = () => {
       }
       const { data: refreshed } = await supabase
         .from("games")
-        .select("*")
+        .select(
+          `
+          id,
+          room_name,
+          room_code,
+          host_id,
+          members,
+          status,
+          current_turn,
+          winner_id,
+          game_mode,
+          ready_members,
+          created_at,
+          updated_at,
+          disconnected_user_id,
+          reconnect_until,
+          has_password
+        `
+        )
         .eq("id", data.id)
         .single();
       return { data: refreshed || data, error: null };
@@ -234,6 +365,15 @@ export const useSupabase = () => {
     }
 
     if (!alreadyIn) {
+      if (data.has_password && !password?.trim()) {
+        return {
+          data: null,
+          error: { message: "need_password", code: "need_password" },
+          needsPassword: true as const,
+          room: data,
+        };
+      }
+
       // 1vs1 rooms are limited to 2 members.
       if (
         (data.game_mode ?? "1vs1") === "1vs1" &&
@@ -245,7 +385,11 @@ export const useSupabase = () => {
         };
       }
 
-      const { error: joinError } = await joinRoom(data.id, userId);
+      const { error: joinError } = await joinRoom(
+        data.id,
+        userId,
+        password
+      );
       if (joinError) return { data: null, error: joinError };
     }
 

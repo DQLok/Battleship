@@ -3,15 +3,35 @@
 .lobby-page {
   @apply w-full h-full min-h-0 flex flex-col bg-[#061421] overflow-hidden;
 
+  /* Nội dung không sát viền màn hình / header */
+  .lobby-page__top {
+    @apply px-4 pt-3 pb-2 shrink-0;
+  }
+
+  .lobby-page__tabs {
+    @apply flex-1 min-h-0 overflow-hidden px-3 pb-24;
+  }
+
   .lobby-tabs {
     @apply gap-4 bg-[#061421];
   }
 
+  /* Tabs content padding — tránh sát cạnh */
+  .zaui-tabs,
+  [class*="tabs"] {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .lobby-tab-panel {
+    @apply px-1 pt-3 pb-6;
+  }
+
   .join-room-code {
-    @apply mb-4 text-left;
+    @apply mb-3 text-left;
 
     &__label {
-      @apply text-[10px] font-black tracking-[0.2em] uppercase text-cyan-600 mb-2 block;
+      @apply text-[10px] font-black tracking-[0.2em] uppercase text-cyan-600 mb-2 block px-0.5;
     }
 
     &__row {
@@ -19,23 +39,165 @@
     }
 
     &__input {
-      @apply flex-1 bg-[#0a1f32] border border-cyan-900/60 text-cyan-100 uppercase tracking-[0.3em] text-center text-sm font-black rounded-sm px-3 py-2 outline-none;
+      @apply flex-1 bg-[#0a1f32] border border-cyan-900/60 text-cyan-100 uppercase tracking-[0.3em] text-center text-sm font-black rounded-sm px-3 py-2.5 outline-none;
 
       &::placeholder {
         @apply text-cyan-800 tracking-normal font-normal normal-case;
       }
     }
-  }
 
-  .lobby-create {
-    @apply w-full mb-1 mt-2;
+    &__enter {
+      @apply w-full mt-3 uppercase font-black tracking-widest bg-cyan-400 text-black;
+      border-radius: 4px;
+      border: none;
+    }
+
+    &--enter-full .join-room-code__input {
+      @apply w-full;
+    }
   }
 
   .fab-button {
     position: fixed;
-    right: 1rem;
-    bottom: 1.5rem;
+    right: 1.25rem;
+    bottom: 1.75rem;
     z-index: 40;
+  }
+
+  .room-card {
+    @apply mb-3 mx-0 px-4 py-3.5 border border-cyan-900/50 bg-[#0a1a22]/90;
+    border-radius: 8px;
+
+    &--mine {
+      border-left: 3px solid #facc15;
+    }
+
+    &--locked .room-card__code {
+      @apply text-amber-300;
+    }
+
+    &__row {
+      @apply flex justify-between items-center py-1.5 gap-4;
+    }
+
+    &__label {
+      @apply text-[10px] uppercase tracking-widest text-cyan-700 shrink-0 pl-0.5;
+    }
+
+    &__value {
+      @apply text-sm text-cyan-100 text-right font-bold pr-0.5;
+    }
+
+    &__code {
+      @apply tracking-[0.25em] text-cyan-300;
+    }
+
+    &__status {
+      @apply uppercase tracking-wider text-xs;
+
+      &--waiting {
+        @apply text-green-400;
+      }
+      &--setup {
+        @apply text-violet-400;
+      }
+      &--playing {
+        @apply text-red-400;
+      }
+      &--finished {
+        @apply text-gray-400;
+      }
+    }
+
+    &__actions {
+      @apply flex gap-2 mt-3.5 pt-1 items-center;
+    }
+
+    &__delete {
+      @apply h-10 w-11 shrink-0 bg-red-900/20 border-red-500/50 text-red-500 p-0;
+      border-radius: 8px;
+      min-width: 44px;
+    }
+
+    &__join {
+      @apply h-10 uppercase font-black tracking-tight bg-cyan-400 text-black flex-1;
+      border-radius: 4px;
+      border: none;
+
+      &--secondary {
+        @apply bg-slate-700 text-cyan-100;
+      }
+    }
   }
 }
 
+/* Popup tạo phòng (giữa màn hình) */
+.create-room-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+
+  &__mask {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(2, 12, 22, 0.72);
+    cursor: pointer;
+  }
+
+  &__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 20.5rem;
+    padding: 1.25rem 1.25rem 1.1rem;
+    background: #061421;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  &__title {
+    @apply text-cyan-400 mb-3 text-center tracking-widest uppercase;
+  }
+
+  &__body {
+    @apply gap-3;
+  }
+
+  &__hint {
+    @apply text-cyan-700 text-center mb-1 block;
+  }
+
+  &__input {
+    @apply w-full bg-[#0a1f32] border border-cyan-900/60 text-cyan-100 text-sm rounded-sm px-3 py-3 outline-none box-border;
+
+    &::placeholder {
+      @apply text-cyan-800;
+    }
+  }
+
+  &__btn {
+    @apply uppercase;
+
+    &--primary {
+      @apply bg-cyan-400 text-black font-black;
+    }
+  }
+}
+
+.join-password-sheet {
+  &__input {
+    @apply w-full bg-[#0a1f32] border border-cyan-900/60 text-cyan-100 text-sm rounded-sm px-3 py-3 outline-none;
+
+    &::placeholder {
+      @apply text-cyan-800;
+    }
+  }
+}

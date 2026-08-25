@@ -1,6 +1,6 @@
 import { Game } from "@/types/supabase/Game";
 import React from "react";
-import { Box, Text, Button, Avatar, Icon } from "zmp-ui";
+import { Box, Text, Button, Icon } from "zmp-ui";
 import { useGameLifecycle } from "@/context/GameLifecycleContext";
 import { GAME_LIFECYCLE_DEFAULTS } from "@/constants/game-lifecycle";
 
@@ -8,8 +8,21 @@ interface RoomCardProps {
   room: any;
   myId: string;
   onJoin: (gameId: string, game: Game) => void;
-  onDelete: (gameId: string) => void;
+  onDelete?: (gameId: string) => void;
 }
+
+const statusLabel = (status: string) => {
+  switch (status) {
+    case "playing":
+      return "In Battle";
+    case "setup":
+      return "Setup";
+    case "finished":
+      return "Finished";
+    default:
+      return "Waiting";
+  }
+};
 
 const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
   const { settings: lifecycle } = useGameLifecycle();
@@ -18,175 +31,118 @@ const RoomCard = ({ room, myId, onJoin, onDelete }: RoomCardProps) => {
   const maxMembers =
     gameMode === "1vs1"
       ? lifecycle.max_members_1vs1 ?? GAME_LIFECYCLE_DEFAULTS.max_members_1vs1
-      : 8; // team mode reserved (4vs4 -> up to 8)
+      : 8;
   const isFull = memberCount >= maxMembers;
   const isMine = room.host_id === myId;
-  const isPlaying = room.status === "playing";
-  const isSetup = room.status === "setup";
-  const host = room.host;
-  const isOnline = room.id !== "###";
+  const isMember = (room.members || []).includes(myId);
+  const isWaiting = room.status === "waiting" || !room.status;
+  const isBot = room.id === "###";
+  const hostName = isMine
+    ? "Bạn"
+    : room.host?.username || (String(room.host_id || "").startsWith("guest_") ? "Guest" : "Unknown");
+
+  const canJoinWaiting =
+    isWaiting && !isBot && (isMine || isMember || !isFull);
 
   const handleAction = (e: React.MouseEvent, callback: () => void) => {
     e.stopPropagation();
     callback();
   };
 
+  if (isBot) {
+    return (
+      <Box className="room-card room-card--bot">
+        <Box className="room-card__meta">
+          <Text className="room-card__code">BOT</Text>
+          <Text className="room-card__host">Bot Mode</Text>
+          <Text className="room-card__status">Offline</Text>
+          <Text className="room-card__members">1</Text>
+        </Box>
+        <Button
+          fullWidth
+          className="room-card__join bg-red-600 text-white"
+          onClick={(e) => handleAction(e, () => onJoin(room.id, room))}
+        >
+          Vào chiến trường
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box
-      className="relative overflow-hidden mb-4 transition-all active:scale-[0.98] cursor-pointer"
-      style={{
-        background: isMine ? "rgba(20, 40, 45, 0.95)" : "rgba(10, 26, 31, 0.9)",
-        borderLeft: isMine
-          ? "4px solid #facc15"
-          : isPlaying
-          ? "4px solid #ef4444"
-          : isSetup
-          ? "4px solid #a78bfa"
-          : "4px solid #00e5ff",
-        boxShadow: isMine
-          ? "0 0 20px rgba(250, 204, 21, 0.15)"
-          : "0 0 15px rgba(0, 229, 255, 0.1)",
-        borderRadius: "4px",
-      }}
+      className={`room-card ${isMine ? "room-card--mine" : ""} ${
+        room.has_password ? "room-card--locked" : ""
+      }`}
     >
-      {/* Header: ID và Status */}
-      {isOnline && (
-        <Box
-          flex
-          flexDirection="row"
-          justifyContent="space-between"
-          p={3}
-          className="border-b border-gray-800/50"
+      <Box className="room-card__row">
+        <Text className="room-card__label">Code</Text>
+        <Text className="room-card__value room-card__code">
+          {room.room_code || room.id?.slice?.(0, 6)?.toUpperCase()}
+          {room.has_password ? " 🔒" : ""}
+        </Text>
+      </Box>
+      <Box className="room-card__row">
+        <Text className="room-card__label">Host</Text>
+        <Text className="room-card__value">{hostName}</Text>
+      </Box>
+      <Box className="room-card__row">
+        <Text className="room-card__label">Trạng thái</Text>
+        <Text
+          className={`room-card__value room-card__status room-card__status--${
+            room.status || "waiting"
+          }`}
         >
-          <Box flex flexDirection="row" alignItems="center">
-            <Text
-              size="xxSmall"
-              className={`rounded mr-2 uppercase font-bold ${
-                isMine
-                  ? "bg-yellow-900 text-yellow-400"
-                  : "bg-cyan-900 text-cyan-400"
-              }`}
-            >
-              {room.room_code || `#${room.id.slice(0, 4).toUpperCase()}`}
-            </Text>
-            <Text
-              size="small"
-              bold
-              className={`${
-                isPlaying
-                  ? "text-red-500 animate-pulse"
-                  : isSetup
-                  ? "text-violet-400"
-                  : "text-green-400"
-              } uppercase tracking-widest`}
-            >
-              {isPlaying ? "• In Battle" : isSetup ? "• Setup" : "• Waiting"}
-            </Text>
-          </Box>
-
-          <Box
-            flex
-            alignItems="center"
-            className={
-              isPlaying ? "text-red-400" : isSetup ? "text-violet-400" : "text-cyan-400"
-            }
-          >
-            <Icon icon="zi-group" size={14} style={{ marginRight: 4 }} />
-            {memberCount}
-          </Box>
-        </Box>
-      )}
-
-      {/* Body: Host Info */}
-      <Box p={3} flex flexDirection="row" alignItems="center">
-        <div className="relative">
-          <Avatar
-            src={host?.avatar_url}
-            size={48}
-            className={`border p-0.5 ${
-              isMine ? "border-yellow-500" : "border-cyan-500"
-            }`}
-          />
-          {isMine && (
-            <div className="absolute -top-1 -left-1 bg-yellow-500 text-[8px] px-1 font-black text-black rounded-sm shadow-lg">
-              HOST
-            </div>
-          )}
-        </div>
-
-        <Box ml={3} flex flexDirection="column">
-          <Text
-            size="xSmall"
-            className="text-cyan-600 font-bold uppercase tracking-tighter"
-          >
-            {room.room_name || "STRATEGY_DECK"}
-          </Text>
-          <Text bold className="text-gray-100 text-lg leading-tight">
-            {isMine ? "YOU (COMMANDER)" : host?.username || "Unknown Captain"}
-          </Text>
-        </Box>
+          {statusLabel(room.status || "waiting")}
+        </Text>
+      </Box>
+      <Box className="room-card__row">
+        <Text className="room-card__label">Members</Text>
+        <Text className="room-card__value room-card__members">
+          {memberCount}
+          {gameMode === "1vs1" ? ` / ${maxMembers}` : ""}
+        </Text>
       </Box>
 
-      {/* Footer: Actions */}
-      <Box
-        px={2}
-        pb={2}
-        flex
-        flexDirection="row"
-        className="gap-2 items-center"
-      >
-        {isOnline && isMine && (
+      <Box className="room-card__actions">
+        {isMine && onDelete && (
           <Button
             variant="secondary"
             type="neutral"
-            className="h-10 w-12 bg-red-900/20 border-red-500/50 text-red-500 p-0 flex items-center justify-center shrink-0"
+            className="room-card__delete"
             onClick={(e) => handleAction(e, () => onDelete(room.id))}
-            style={{ borderRadius: "10px", minWidth: "40px" }}
           >
-            <Icon icon="zi-delete" size={20} />
+            <Icon icon="zi-delete" size={18} />
           </Button>
         )}
-
-        <Button
-          fullWidth
-          disabled={
-            !isMine &&
-            !room.members?.includes(myId) &&
-            (isFull || isSetup || isPlaying)
-          }
-          onClick={(e) =>
-            handleAction(e, () => {
-              // if (isMine || room.members?.includes(myId)) {
-              //   goToRoom();
-              // } else {
-              //   onJoin(room.id);
-              // }
-              onJoin(room.id, room);
-            })
-          }
-          className={`h-10 uppercase font-black tracking-tighter flex-1 ${
-            isMine
-              ? "bg-yellow-500 text-black"
-              : isPlaying || !isOnline
-              ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-              : isSetup
-              ? "bg-violet-500 text-white"
+        {isWaiting ? (
+          <Button
+            fullWidth
+            disabled={!canJoinWaiting && !isMine && !isMember}
+            className="room-card__join"
+            onClick={(e) => handleAction(e, () => onJoin(room.id, room))}
+          >
+            {isMine || isMember
+              ? "Vào phòng"
               : isFull
-              ? "bg-gray-800 text-gray-500"
-              : "bg-cyan-400 text-black"
-          }`}
-          style={{ borderRadius: "2px", border: "none" }}
-        >
-          {isMine || room.members?.includes(myId)
-            ? isPlaying || !isOnline
-              ? "VÀO CHIẾN TRƯỜNG"
-              : isSetup
-              ? "VÀO DÀN TRẬN"
-              : "VÀO PHÒNG CHỜ"
-            : isFull
-            ? "FULL UNIT"
-            : "GIA NHẬP"}
-        </Button>
+              ? "Đã đủ người"
+              : room.has_password
+              ? "Tham gia (có MK)"
+              : "Tham gia"}
+          </Button>
+        ) : isMine || isMember ? (
+          <Button
+            fullWidth
+            className="room-card__join room-card__join--secondary"
+            onClick={(e) => handleAction(e, () => onJoin(room.id, room))}
+          >
+            {room.status === "setup"
+              ? "Vào dàn trận"
+              : room.status === "playing"
+              ? "Vào trận"
+              : "Xem phòng"}
+          </Button>
+        ) : null}
       </Box>
     </Box>
   );
