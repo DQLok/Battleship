@@ -16,6 +16,7 @@ Telegram nhét launch params vào hash `#tgWebAppData=...`. Không được bi�
 - Vite `base`: build = `/Battleship/`, dev = `/`.
 - BotFather Web App URL nên là `https://<user>.github.io/Battleship/` (**có `/` cuối**) để tránh redirect làm mất hash.
 - Deploy: `npm run deploy` (nhánh `gh-pages`). CDN GitHub có thể cache HTML ~vài phút.
+- **Env production:** `.env.production` phải có `VITE_SUPABASE_URL=https://….supabase.co` + `VITE_SUPABASE_ANON_KEY` (Dashboard → API). Dev local dùng `.env.development.local` (Docker). Không để URL `127.0.0.1` trong `.env.local` khi deploy — Vite sẽ bake local URL vào `dist`.
 - Đóng hẳn Mini App rồi mở lại sau deploy; đừng chỉ refresh WebView cũ.
 
 ## File

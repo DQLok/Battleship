@@ -4,8 +4,8 @@ import BottomNav from "./BottomNav"; // Đường dẫn đến file BottomNav c�
 
 const MainLayout = () => {
   return (
-    <div className="flex h-screen min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
         <Outlet />
       </div>
       <BottomNav />

@@ -1,7 +1,7 @@
 @use "../components/patterns" as *;
 
 .lobby-page {
-  @apply w-full h-full min-h-0 flex flex-col bg-[#061421] overflow-hidden;
+  @apply w-full min-h-full flex flex-col bg-[#061421] overflow-y-auto;
 
   /* Nội dung không sát viền màn hình / header */
   .lobby-page__top {
@@ -9,7 +9,7 @@
   }
 
   .lobby-page__tabs {
-    @apply flex-1 min-h-0 overflow-hidden px-3 pb-24;
+    @apply flex-1 px-3 pb-28;
   }
 
   .lobby-tabs {

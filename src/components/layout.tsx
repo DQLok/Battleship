@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { AppRoot } from "@telegram-apps/telegram-ui";
 import { backButton, retrieveLaunchParams } from "@telegram-apps/sdk-react";
-import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { SnackbarProvider } from "zmp-ui";
 import { UserProvider, useUser } from "@/context/UserContext";
 import { GameLifecycleProvider } from "@/context/GameLifecycleContext";
@@ -16,22 +16,44 @@ import { WaitingRoom } from "@/features/lobby/WaitingRoom";
 
 function TelegramBackButton() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (location.pathname === "/") {
-      backButton.hide.ifAvailable();
-    } else {
-      backButton.show.ifAvailable();
+    let off: (() => void) | undefined;
+
+    try {
+      // Local browser / mock: back button often unavailable — never crash the tree.
+      if (!backButton.onClick.isAvailable()) {
+        return;
+      }
+
+      if (backButton.mount.isAvailable() && !backButton.isMounted()) {
+        backButton.mount();
+      }
+
+      const atHome =
+        location.pathname === "/" || location.pathname === "";
+      if (atHome) {
+        backButton.hide.ifAvailable();
+      } else {
+        backButton.show.ifAvailable();
+      }
+
+      off = backButton.onClick(() => {
+        navigate(-1);
+      });
+    } catch (error) {
+      console.warn("TelegramBackButton skipped (local/non-Telegram OK):", error);
     }
 
-    const result = backButton.onClick.ifAvailable(() => {
-      window.history.back();
-    });
-
     return () => {
-      if (result[0]) result[1]();
+      try {
+        off?.();
+      } catch {
+        // ignore cleanup errors outside Telegram WebView
+      }
     };
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
   return null;
 }

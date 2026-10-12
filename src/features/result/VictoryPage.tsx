@@ -4,7 +4,7 @@ import { Icon, Button, Page } from "zmp-ui";
 
 const VictoryPage: React.FC = () => {
   return (
-    <Page className="h-screen w-full bg-[#061421] text-white flex flex-col font-mono overflow-y-auto pb-10" hideScrollbar>
+    <Page className="min-h-screen w-full bg-[#061421] text-white flex flex-col font-mono overflow-y-auto pb-24">
       {/* Header (Giữ nguyên style đồng bộ) */}
       <div className="p-4 flex justify-between items-center border-b border-cyan-900/30">
         <div className="flex items-center gap-2">
