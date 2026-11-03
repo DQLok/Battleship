@@ -1,48 +1,32 @@
-# Zalo Mini App
+# Battleship (Meta Instant Game)
 
-## Development
+Nhánh `main_meta`. Rule và resource: **[docs/meta.md](docs/meta.md)**.
 
-### Using Zalo Mini App Extension
+Game là web app. Trong Facebook / Messenger, `src/meta/instant.ts` gọi `initializeAsync` → `setLoadingProgress` → `startGameAsync` rồi lấy `player.getID()`. Trên browser, mỗi tab một id local (`?mockId=` để cố định). Logic trận và bảng Supabase không đổi.
 
-1. Install [Visual Studio Code](https://code.visualstudio.com/download) and [Zalo Mini App Extension](https://mini.zalo.me/docs/dev-tools).
-1. In the **Home** tab, process **Config App ID** and **Install Dependencies**.
-1. Navigate to the **Run** tab, select the suitable launcher, and click **Start**.
+Env và launcher: **[docs/env.md](docs/env.md)**.
 
-### Using Zalo Mini App CLI
+```bash
+npm install
+npm run dev          # local + Supabase Docker 127.0.0.1:54331
+npm run dev:prod     # cùng app, Supabase cloud public
+```
 
-1. [Install Node JS](https://nodejs.org/en/download/).
-1. [Install Zalo Mini App CLI](https://mini.zalo.me/docs/dev-tools/cli/intro/).
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-1. **Start** the dev server:
-   ```bash
-   zmp start
-   ```
-1. **Open** `localhost:3000` in your browser.
+Cursor Run and Debug: **Debug Dev (local Supabase)** hoặc **Debug Prod (cloud Supabase)**. Cả hai mở `http://localhost:5173/`. Hai người local: hai tab, hoặc `?mockId=player1` và `?mockId=player2`.
 
-## Deployment
+Đóng zip upload:
 
-1. **Create** a mini program. For instructions on how to create a mini program, please refer to the [Coffee Shop Tutorial](https://mini.zalo.me/tutorial/coffee-shop/step-1/)
+```bash
+npm run bundle:meta
+```
 
-1. **Deploy** your mini program to Zalo using the mini app ID created.
-
-   - **Using Zalo Mini App Extension**: navigate to the **Deploy** panel > **Login** > **Deploy**.
-   - **Using Zalo Mini App CLI**:
-     ```bash
-     zmp login
-     zmp deploy
-     ```
-
-1. Open the mini app in Zalo by scanning the QR code.
+`battleship-instant.zip` có `index.html` và `fbapp-config.json` ở gốc. Upload tại Instant Games → Web Hosting, rồi Stage for Testing.
 
 ## Resources
 
-- [Zalo Mini App Official Website](https://mini.zalo.me/)
-- [ZaUI Documentation](https://mini.zalo.me/documents/zaui/)
-- [ZMP SDK Documentation](https://mini.zalo.me/documents/api/)
-- [DevTools Documentation](https://mini.zalo.me/docs/dev-tools/)
-- [Ready-made Mini App Templates](https://mini.zalo.me/zaui-templates)
-- [Community Support](https://mini.zalo.me/community)
-# Battleship
+- [Quick Start](https://developers.facebook.com/documentation/games/build/quick-start)
+- [Bundle configuration](https://developers.facebook.com/documentation/games/build/bundle-configuration)
+- [Content Security Policy](https://developers.facebook.com/documentation/games/build/content-security-policy)
+- [Zero Permissions](https://developers.facebook.com/documentation/games/build/zero-permissions/overview)
+- [SDK reference](https://developers.facebook.com/documentation/games/sdk-reference)
+- [App Dashboard](https://developers.facebook.com/apps/)

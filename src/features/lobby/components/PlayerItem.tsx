@@ -1,4 +1,4 @@
-import { Box, Icon } from "zmp-ui";
+import { Box, Icon } from "@/ui";
 
 export const PlayerItem = ({
   player,

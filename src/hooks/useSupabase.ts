@@ -1,7 +1,7 @@
 // src/hooks/useSupabase.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { useSnackbar } from "zmp-ui";
+import { useSnackbar } from "@/ui";
 
 export const useSupabase = () => {
   const [rooms, setRooms] = useState<any[]>([]);

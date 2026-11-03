@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text } from "zmp-ui";
+import { Text } from "@/ui";
 
 function Clock() {
   const [time, setTime] = useState("");

@@ -1,28 +1,26 @@
+import { getMetaPlayerId } from "@/meta/instant";
 import { Profile } from "@/types/supabase/Profile";
-import { getUserInfo } from "zmp-sdk";
+
+const LOCAL_PLAYER_KEY = "battleship_local_player";
+
+function localPlayerId(): string {
+  const existing = sessionStorage.getItem(LOCAL_PLAYER_KEY);
+  if (existing) return existing;
+  const id = `local_${Math.random().toString(36).slice(2, 10)}`;
+  sessionStorage.setItem(LOCAL_PLAYER_KEY, id);
+  return id;
+}
 
 /**
- * Lấy User ID ưu tiên từ URL (Mock) hoặc từ Zalo SDK
- * @returns Promise<string>
+ * Player id written to the same profile/game columns.
+ * Meta: FBInstant.player.getID() after startGameAsync.
+ * Browser: ?mockId= or a per-tab local id.
  */
 export const getAppUserId = async (): Promise<string> => {
-  try {
-    // 1. Kiểm tra Mock ID từ URL trước (Dành cho việc test 2 simulator/tab)
-    const urlParams = new URLSearchParams(window.location.search);
-    const mockId = urlParams.get("mockId");
+  const mockId = new URLSearchParams(window.location.search).get("mockId");
+  if (mockId) return mockId;
 
-    if (mockId) {
-      return mockId;
-    }
-
-    // 2. Nếu không có mockId, lấy từ Zalo SDK
-    const { userInfo } = await getUserInfo({});
-    return userInfo.id;
-  } catch (error) {
-    console.error("Error getting User Info:", error);
-    // Trả về một ID mặc định hoặc rỗng để tránh crash app khi dev
-    return "guest_user";
-  }
+  return getMetaPlayerId() || localPlayerId();
 };
 
 export const generateFakePlayers = (count: number): Profile[] => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
-import { Button, Box, Icon } from "zmp-ui";
+import { Button, Box, Icon } from "@/ui";
 
 const CombatControls: React.FC = () => {
   const { autoPlaceShips, resetShips, placedShips } = useCombatStore();

@@ -1,6 +1,6 @@
 import BottomNav from "@/components/BottomNav";
 import React from "react";
-import { Icon, Button, Page } from "zmp-ui";
+import { Icon, Button, Page } from "@/ui";
 
 const VictoryPage: React.FC = () => {
   return (

@@ -29,6 +29,8 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.local
+.env.*.local
 
 # Misc
 .DS_Store
@@ -36,6 +38,8 @@ Thumbs.db
 
 # Production build
 www/
+dist/
+battleship-instant.zip
 
 # Grapuco (code intelligence cache)
 .grapuco/ast-cache/

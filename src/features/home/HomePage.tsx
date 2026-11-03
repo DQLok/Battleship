@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Avatar, Box, Header, Page, Sheet, Text, useNavigate, useSnackbar } from "zmp-ui";
+import { Avatar, Box, Header, Page, Sheet, Text, useNavigate, useSnackbar } from "@/ui";
 import "@/css/features/home.scss";
 import CombatHeader from "@/components/CombatHeader";
 import { BarChart3, Settings, Ship, Trophy, Zap } from "lucide-react";

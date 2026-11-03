@@ -8,7 +8,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import { getUserInfo } from "zmp-sdk";
 
 interface UserContextType {
   user: Profile | null;
@@ -28,16 +27,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initUser = async () => {
       try {
-        const { userInfo } = await getUserInfo({});
         const id = await getAppUserId();
-
+        const now = new Date().toISOString();
         const userData = {
-          id: id || userInfo.id,
-          username: id ? `Player_${id}` : userInfo.name,
-          avatar_url: id ? "" : userInfo.avatar,
+          id,
+          username: `Player_${id}`,
+          avatar_url: "",
+          wins: 0,
+          total_games: 0,
+          created_at: now,
+          updated_at: now,
         };
 
-        // Sync Supabase ngay tại đây
         const { data, error } = await supabase
           .from("profiles")
           .upsert(
@@ -45,14 +46,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               id: userData.id,
               username: userData.username,
               avatar_url: userData.avatar_url,
-              updated_at: new Date().toISOString(),
+              updated_at: now,
             },
             { onConflict: "id" }
           )
           .select()
           .single();
 
-        setUser(data);
+        if (error) {
+          console.error("Profile sync failed:", error);
+        }
+
+        setUser(data ?? userData);
       } catch (e) {
         console.error(e);
       } finally {

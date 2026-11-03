@@ -1,23 +1,25 @@
-// ZaUI stylesheet
-import "zmp-ui/zaui.css";
-// Tailwind stylesheet
 import "@/css/tailwind.scss";
-// Your stylesheet
 import "@/css/app.scss";
 
-// React core
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Mount the app
 import Layout from "@/components/layout";
+import { startInstantGame } from "@/meta/instant";
 
-// Expose app configuration
-import appConfig from "../app-config.json";
+document.documentElement.setAttribute("zaui-theme", "dark");
 
-if (!window.APP_CONFIG) {
-  window.APP_CONFIG = appConfig as any;
+function renderApp() {
+  const root = createRoot(document.getElementById("app")!);
+  root.render(React.createElement(Layout));
 }
 
-const root = createRoot(document.getElementById("app")!);
-root.render(React.createElement(Layout));
+startInstantGame()
+  .then(renderApp)
+  .catch((error) => {
+    console.error("Failed to initialize Instant Game:", error);
+    const el = document.getElementById("app");
+    if (el) {
+      el.textContent = "Không khởi động được Instant Game.";
+    }
+  });

@@ -1,0 +1,30 @@
+---
+description: Facebook Instant Games rules for the Meta mini app branch
+alwaysApply: true
+---
+
+# Meta Instant Games
+
+This branch ships as a Facebook Instant Game. Behavior and links: `docs/meta.md`. Official guide: https://developers.facebook.com/documentation/games/build/quick-start
+
+## Lifecycle
+
+Load `https://connect.facebook.net/en_US/fbinstant.8.0.js` before game scripts. Then, in order:
+
+1. `FBInstant.initializeAsync()` — no other `FBInstant` call before this resolves
+2. `FBInstant.setLoadingProgress(n)` with a real 0–100 value while assets load
+3. `FBInstant.startGameAsync()` — only then show playable UI
+
+The SDK script still creates `FBInstant` in a normal browser, but `initializeAsync()` never settles outside Facebook or Messenger. Skip the lifecycle on localhost and if init does not settle within a few seconds.
+
+## Bundle
+
+`fbapp-config.json` sits at the zip root next to `index.html`. Required field: `instant_games.navigation_menu_version` = `NAV_BAR` or `NAV_FLOATING`. `orientation` is `PORTRAIT` or `LANDSCAPE` in capitals. Zip the build contents, not a parent folder. Keep the first bundle small (aim under 5 MB).
+
+## Player data
+
+Use `FBInstant.player.getID()` after `startGameAsync`. That id is scoped to this game. Do not read the player name or photo in game code — those render through Meta overlay views.
+
+## External hosts
+
+Allowlist each host in App Dashboard → Instant Games → Content Security Policy (hostname only, lowercase, no scheme or path). Supabase needs `connect-src`. Image CDNs need `img-src`.

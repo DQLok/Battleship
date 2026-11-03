@@ -11,8 +11,7 @@ import {
   useLocation,
   useNavigate,
   useSnackbar,
-} from "zmp-ui";
-// import { api } from "zmp-sdk";
+} from "@/ui";
 import { supabase } from "@/api/supabaseClient";
 import { useUser } from "@/context/UserContext";
 import { useCombatStore } from "@/hooks/useCombatStore";
@@ -22,7 +21,6 @@ import { useSupabase } from "@/hooks/useSupabase";
 import CombatHeader from "../../components/CombatHeader";
 import GameGrid from "./components/GameGrid";
 import ShipStatusHeader from "./components/ShipStatusHeader";
-import BottomNav from "@/components/BottomNav";
 import { ShipDock } from "./components/ShipDock";
 
 import "@/css/features/combat.scss";
@@ -746,7 +744,6 @@ const CombatPage: React.FC = () => {
         </Box>
       )}
 
-      <BottomNav />
     </Page>
   );
 };

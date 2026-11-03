@@ -1,6 +1,6 @@
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./PlayerItem";
-import { Box } from "zmp-ui";
+import { Box } from "@/ui";
 
 export const renderTeamSlots = (
   teamPlayers: Profile[],

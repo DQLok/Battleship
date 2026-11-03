@@ -2,7 +2,7 @@
   "name": "battleship",
   "private": true,
   "version": "1.0.0",
-  "description": "zmp-blank-templates",
+  "description": "Battleship Meta Instant Game",
   "repository": "",
   "license": "UNLICENSED",
   "browserslist": [
@@ -15,9 +15,13 @@
     "Samsung >= 5"
   ],
   "scripts": {
-    "login": "zmp login",
-    "start": "zmp start",
-    "deploy": "zmp deploy"
+    "dev": "node scripts/launch.mjs dev",
+    "start": "node scripts/launch.mjs dev",
+    "dev:prod": "node scripts/launch.mjs prod",
+    "start:prod": "node scripts/launch.mjs prod",
+    "build": "vite build",
+    "preview": "vite preview",
+    "bundle:meta": "npm run build && node scripts/bundle-instant.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
@@ -26,9 +30,8 @@
     "motion": "^12.38.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.5",
     "tailwind-merge": "^3.5.0",
-    "zmp-sdk": "latest",
-    "zmp-ui": "latest",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -42,7 +45,6 @@
     "postcss-preset-env": "^6.7.0",
     "sass": "^1.76.0",
     "tailwindcss": "^3.4.3",
-    "vite": "^5.2.13",
-    "zmp-vite-plugin": "latest"
+    "vite": "^5.2.13"
   }
 }

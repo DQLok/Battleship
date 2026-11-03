@@ -1,15 +1,7 @@
-import { getSystemInfo } from "zmp-sdk";
-import {
-  AnimationRoutes,
-  App,
-  Route,
-  SnackbarProvider,
-  ZMPRouter,
-} from "zmp-ui";
-import { AppProps } from "zmp-ui/app";
-import { UserProvider, useUser } from "@/context/UserContext"; // Import cả 2
+import { HashRouter, Route, Routes } from "react-router-dom";
+import { SnackbarProvider } from "@/ui";
+import { UserProvider, useUser } from "@/context/UserContext";
 
-// Các màn hình của bạn
 import CombatPage from "@/features/combat/CombatPage";
 import HomePage from "@/features/home/HomePage";
 import VictoryPage from "@/features/result/VictoryPage";
@@ -22,7 +14,6 @@ const AppContent = () => {
   const { loading } = useUser();
 
   if (loading) {
-    // Style này giúp màn hình loading khớp với phong cách Cyberpunk của bạn
     return (
       <div
         style={{
@@ -41,29 +32,27 @@ const AppContent = () => {
   }
 
   return (
-    <App theme={getSystemInfo().zaloTheme as AppProps["theme"]}>
-      <SnackbarProvider>
-        <ZMPRouter>
-          <AnimationRoutes>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/combat" element={<CombatPage />} />
-              <Route path="/match" element={<MatchmakingPage />} />
-              <Route path="/lobby" element={<LobbyPage />} />
-            </Route>
-            <Route path="/result" element={<VictoryPage />} />
-            <Route path="/waiting" element={<WaitingRoom />} />
-          </AnimationRoutes>
-        </ZMPRouter>
-      </SnackbarProvider>
-    </App>
+    <SnackbarProvider>
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/combat" element={<CombatPage />} />
+          <Route path="/match" element={<MatchmakingPage />} />
+          <Route path="/lobby" element={<LobbyPage />} />
+        </Route>
+        <Route path="/result" element={<VictoryPage />} />
+        <Route path="/waiting" element={<WaitingRoom />} />
+      </Routes>
+    </SnackbarProvider>
   );
 };
 
 export const Layout = () => (
-  <UserProvider>
-    <AppContent />
-  </UserProvider>
+  <HashRouter>
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
+  </HashRouter>
 );
 
 export default Layout;

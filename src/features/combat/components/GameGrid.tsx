@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useCombatStore } from "@/hooks/useCombatStore";
-import { useSnackbar } from "zmp-ui";
+import { useSnackbar } from "@/ui";
 
 const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 

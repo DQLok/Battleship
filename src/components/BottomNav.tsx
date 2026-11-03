@@ -1,4 +1,4 @@
-import { BottomNavigation, Icon, useLocation, useNavigate } from "zmp-ui";
+import { BottomNavigation, Icon, useLocation, useNavigate } from "@/ui";
 
 export default function BottomNav() {
   const navigate = useNavigate();

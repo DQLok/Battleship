@@ -1,6 +1,6 @@
 // 1. Profile người dùng
 export interface Profile {
-  id: string; // Zalo ID
+  id: string; // Player id (Meta getID or local session)
   username: string | null;
   avatar_url: string | null;
   wins: number;

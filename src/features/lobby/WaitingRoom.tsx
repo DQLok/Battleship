@@ -8,7 +8,7 @@ import {
   useSnackbar,
   useLocation,
   Text,
-} from "zmp-ui";
+} from "@/ui";
 import { supabase } from "@/api/supabaseClient";
 import { Profile } from "@/types/supabase/Profile";
 import { PlayerItem } from "./components/PlayerItem";

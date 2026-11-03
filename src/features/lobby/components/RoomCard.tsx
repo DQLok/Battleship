@@ -1,7 +1,7 @@
 import { useCombatStore } from "@/hooks/useCombatStore";
 import { Game } from "@/types/supabase/Game";
 import React from "react";
-import { Box, Text, Button, Avatar, Icon, useNavigate } from "zmp-ui";
+import { Box, Text, Button, Avatar, Icon, useNavigate } from "@/ui";
 
 interface RoomCardProps {
   room: any;

@@ -1,7 +1,7 @@
 // src/features/combat/components/CombatHeader.tsx
 import React, { useEffect } from "react";
 import { useUser } from "@/context/UserContext";
-import { Avatar, Box, ImageViewer, Text } from "zmp-ui";
+import { Avatar, Box, ImageViewer, Text } from "@/ui";
 
 const CombatHeader: React.FC = () => {
   const { user } = useUser();

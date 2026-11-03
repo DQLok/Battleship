@@ -1,5 +1,4 @@
-import { openMiniApp } from "zmp-sdk";
-import { Box, Button, Icon, Page, Text } from "zmp-ui";
+import { Box, Button, Icon, Page, Text } from "@/ui";
 
 import Clock from "@/components/clock";
 import Logo from "@/components/logo";
@@ -21,13 +20,9 @@ function HomePage() {
       <Button
         variant="primary"
         suffixIcon={<Icon icon="zi-more-grid" />}
-        onClick={() => {
-          openMiniApp({
-            appId: "1070750904448149704", // ZaUI Components
-          });
-        }}
+        onClick={() => undefined}
       >
-        ZaUI Component Library
+        Component Library
       </Button>
       <Logo className="fixed bottom-8" />
     </Page>
